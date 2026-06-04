@@ -1,0 +1,21 @@
+package com.honghanh.buildyourcastledemo.core.model
+
+data class LinhThuData(
+    // nhóm định danh linh thú
+    val idLinhThu: Int,
+    val nameLinhThu: String,
+    val rarity: Rarity,
+    val priceGold: Int,
+    val priceGems: Int,
+    //Era Chronos, viết tắt EC
+   val priceEC: Int,
+    //nhóm đồ họa
+    val assetName: String,//tên file chứa animation nhân vật
+    //nhóm tính cách
+    val personalityType: String, //tính cách
+    val aiSystemPrompt: String,//câu lệnh định hình giọng văn
+   //nhóm chỉ số
+    val affinityLevel: Int =0,//chỉ số thân thiết
+    val totalFocusTime: Int=0, // tổng số phút người dùng sử dụng linh thú
+    val unlockdDialogues: List<String>
+)

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "592901243902",
+    "project_id": "buildyourcastle-f1d5d",
+    "storage_bucket": "buildyourcastle-f1d5d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:592901243902:android:045fdd4bf2d955ce0f76af",
+        "android_client_info": {
+          "package_name": "com.honghanh.buildyourcastledemo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDM2fuZJSDqyRJraWkk4t14Cm03uc2rP9E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
