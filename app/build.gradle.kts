@@ -61,4 +61,5 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
     implementation("com.airbnb.android:lottie-compose:6.4.0")
+    implementation("io.coil-kt:coil-compose:2.6.0")
 }

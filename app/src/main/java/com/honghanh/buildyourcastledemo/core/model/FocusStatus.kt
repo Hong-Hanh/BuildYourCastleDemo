@@ -1,4 +1,4 @@
-package com.honghanh.buildyourcastledemo.ui.focus
+package com.honghanh.buildyourcastledemo.core.model
 
 //enum là danh sách các lựa chọn tự đặt ra
 //tại một thời điểm chỉ dđược chọn 1 trong các lựa chọn này

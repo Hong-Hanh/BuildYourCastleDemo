@@ -1,5 +1,7 @@
 package com.honghanh.buildyourcastledemo.core.model
 
+import com.honghanh.buildyourcastledemo.core.model.LinhThuData
+
 sealed class GachaReward{
     data class Currency(val type: Currency, val amount: Int): GachaReward()
     data class LinhThu(val data: LinhThuData): GachaReward()
