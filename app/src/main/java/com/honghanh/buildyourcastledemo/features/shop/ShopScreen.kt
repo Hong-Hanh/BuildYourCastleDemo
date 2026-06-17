@@ -1,7 +1,5 @@
 package com.honghanh.buildyourcastledemo.features.shop
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,18 +23,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.honghanh.buildyourcastledemo.R
-import com.honghanh.buildyourcastledemo.core.model.CurencyType
 import com.honghanh.buildyourcastledemo.core.model.HouseData
 import com.honghanh.buildyourcastledemo.core.model.Rarity
+import com.honghanh.buildyourcastledemo.features.shop.FeaturedBannerCard
 import com.honghanh.buildyourcastledemo.ui.theme.BuildYourCastleDemoTheme
+
 
 @Composable
 fun ShopScreen(
@@ -121,7 +120,7 @@ fun ShopContent(
                     title = "Căn Hộ Đám Mây",
                     description = "Nâng cấp không gian tập trung của bạn với phong cách tối giản từ tương lai.",
                     buttonText = "Xem chi tiết",
-                    imageRes = R.drawable.thungrac, // Thay bằng ID ảnh không gian mây
+                    imageUrl = R.drawable.thungrac, // Thay bằng ID ảnh không gian mây
                     containerColor = Color(0xFF235347)
                 )
             }
@@ -133,7 +132,7 @@ fun ShopContent(
                     title = "Linh thú",
                     description = "Hệ thống trợ thủ rèn đúc, tăng tốc xây lâu đài sắp sửa ra mắt.",
                     buttonText = "Sắp ra mắt",
-                    imageRes = R.drawable.thungrac, // Thay bằng ID ảnh chú mèo thần tài tương ứng
+                    imageUrl = R.drawable.thungrac, // Thay bằng ID ảnh chú mèo thần tài tương ứng
                     containerColor = Color(0xFF90EED6),
                     isDarkTheme = false
                 )
@@ -208,7 +207,7 @@ fun FeaturedBannerCard(
     title: String,
     description: String,
     buttonText: String,
-    imageRes: Int,
+    imageUrl: Int,
     containerColor: Color,
     isDarkTheme: Boolean = true
 ) {
@@ -274,7 +273,7 @@ fun FeaturedBannerCard(
                     .fillMaxHeight()
             ) {
                 Image(
-                    painter = painterResource(id = imageRes),
+                    painter = painterResource(id = R.drawable.thungrac),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
@@ -333,13 +332,14 @@ fun ShopItemGridCard(
                 .background(Color.White),
             contentAlignment = Alignment.Center
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.thungrac),
+            AsyncImage(
+                model = house.imageUrl,
                 contentDescription = null,
+                placeholder = painterResource(R.drawable.thungrac),
+                error = painterResource(R.drawable.thungrac),
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-
             // NHÃN GÓC PHẢI TRÊN: HIỂN THỊ ĐÃ MUA HOẶC ĐANG DÙNG THEO ẢNH MẪU
             if (isPurchased) {
                 Surface(
@@ -439,7 +439,11 @@ fun DetailProductDialog(
                             .padding(8.dp)
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(if (playAnimationByEyeMenu) mainColor else Color.Black.copy(alpha = 0.6f))
+                            .background(
+                                if (playAnimationByEyeMenu) mainColor else Color.Black.copy(
+                                    alpha = 0.6f
+                                )
+                            )
                             .clickable { playAnimationByEyeMenu = !playAnimationByEyeMenu },
                         contentAlignment = Alignment.Center
                     ) {

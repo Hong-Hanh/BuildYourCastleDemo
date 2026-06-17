@@ -25,7 +25,7 @@ class ShopViewModel : ViewModel() {
     }
 
     private fun layLtTuFb() {
-        firestore.collection("linh_thu")
+        firestore.collection("house")
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     println("Lỗi lấy dữ liệu: ${error.message}")
@@ -38,11 +38,12 @@ class ShopViewModel : ViewModel() {
                             // Cách bốc dữ liệu an toàn tuyệt đối:
                             // Ta lấy id chuẩn từ doc.id (luôn là String), các trường còn lại bốc từ map về
                             val item = HouseData(
-                                idHouse = doc.id, // 🌟 Lấy thẳng ID của Document, chấp tất cả các thể loại lỗi trong ruột!
+                                idHouse = doc.id,
                                 nameHouse = doc.getString("nameHouse") ?: "",
                                 priceGold = doc.getLong("priceGold")?.toInt() ?: 0,
                                 priceEC = doc.getLong("priceEC")?.toInt() ?: 0,
                                 assetName = doc.getString("assetName") ?: "",
+                                imageUrl = doc.getString("imageUrl") ?: "",
                             )
 
                             listVatPhamLT.add(item)

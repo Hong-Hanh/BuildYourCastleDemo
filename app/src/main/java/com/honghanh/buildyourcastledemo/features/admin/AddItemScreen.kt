@@ -1,11 +1,7 @@
 package com.honghanh.buildyourcastledemo.features.admin
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,7 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage // Sử dụng thư viện Coil để load ảnh Preview mượt mà
+import coil.compose.AsyncImage
 import com.honghanh.buildyourcastledemo.core.model.HouseData
 import com.honghanh.buildyourcastledemo.core.model.Rarity
 import com.honghanh.buildyourcastledemo.ui.theme.BuildYourCastleDemoTheme
@@ -31,11 +27,11 @@ import com.honghanh.buildyourcastledemo.ui.theme.BuildYourCastleDemoTheme
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminScreen(onBack: () -> Unit) {
-    // Sử dụng FirestoreAdminHelper để tương tác thêm nhà lên Firebase
     val adminHelper = remember { FirestoreAdminHelper() }
     val scrollState = rememberScrollState()
 
-    // --- CÁC BIẾN TRẠNG THÁI QUẢN LÝ DỮ LIỆU HOUSE ---
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
     var nameHouse by remember { mutableStateOf("") }
     var rarity by remember { mutableStateOf(Rarity.COMMON) }
     var priceGold by remember { mutableStateOf("") }
@@ -43,16 +39,7 @@ fun AdminScreen(onBack: () -> Unit) {
     var assetName by remember { mutableStateOf("") }
     var rawUnlockDialogues by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
-
-    // 🖼️ Biến lưu trạng thái Uri của ảnh được chọn từ thiết bị
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
-
-    // Launcher mở thư viện ảnh của thiết bị Android để nhặt ảnh
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        selectedImageUri = uri // Lưu Uri lại khi người dùng chọn xong ảnh
-    }
+    var imageUrl by remember { mutableStateOf("") } // ← thay selectedImageUri bằng cái này
 
     Scaffold(
         topBar = {
@@ -60,7 +47,10 @@ fun AdminScreen(onBack: () -> Unit) {
                 title = { Text("Thêm Nhà / Không Gian") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 }
             )
@@ -83,41 +73,49 @@ fun AdminScreen(onBack: () -> Unit) {
                 color = MaterialTheme.colorScheme.primary
             )
 
-            // 🖼️ KHU VỰC KHUNG NHẬP ẢNH XEM TRƯỚC (PREVIEW)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xFFF3F4F6))
-                    .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp))
-                    .clickable { galleryLauncher.launch("image/*") }, // Mở thư viện lọc chỉ hiện file ảnh
-                contentAlignment = Alignment.Center
-            ) {
-                if (selectedImageUri != null) {
-                    // Nếu đã chọn ảnh, hiển thị tấm ảnh đó lên toàn bộ khung
-                    AsyncImage(
-                        model = selectedImageUri,
-                        contentDescription = "House Preview Image",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    // Trạng thái trống khi Admin chưa bấm chọn ảnh
+            // Ô nhập URL ảnh từ GitHub
+            OutlinedTextField(
+                value = imageUrl,
+                onValueChange = { imageUrl = it },
+                label = { Text("Link ảnh (GitHub raw URL)") },
+                placeholder = { Text("https://raw.githubusercontent.com/...") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Xem trước ảnh nếu đã nhập URL
+            if (imageUrl.isNotEmpty()) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = "Preview ảnh",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                // Khung trống khi chưa nhập URL
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFFF3F4F6))
+                        .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("📸", fontSize = 32.sp)
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Bấm vào đây để chọn ảnh từ thiết bị",
+                            text = "Nhập link ảnh ở trên để xem trước",
                             fontSize = 13.sp,
-                            color = Color.Gray,
-                            fontWeight = FontWeight.Medium
+                            color = Color.Gray
                         )
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(4.dp))
 
             OutlinedTextField(
                 value = nameHouse,
@@ -126,7 +124,6 @@ fun AdminScreen(onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Dropdown chọn Rarity
             ExposedDropdownMenuBox(
                 expanded = expanded,
                 onExpandedChange = { expanded = !expanded },
@@ -180,7 +177,7 @@ fun AdminScreen(onBack: () -> Unit) {
             OutlinedTextField(
                 value = rawUnlockDialogues,
                 onValueChange = { rawUnlockDialogues = it },
-                label = { Text("Câu thoại chào mừng khi mở khóa (Cách nhau bằng dấu phẩy)") },
+                label = { Text("Câu thoại chào mừng (cách nhau bằng dấu phẩy)") },
                 placeholder = { Text("Ví dụ: Chào mừng chủ nhân, Không gian mới thật trong lành!") },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 2
@@ -188,36 +185,55 @@ fun AdminScreen(onBack: () -> Unit) {
 
             Button(
                 onClick = {
-                    // Xử lý chuỗi văn bản phân tách bằng dấu phẩy thành List<String>
-                    val processedDialogues: List<String> = if (rawUnlockDialogues.isNotEmpty()) {
-                        rawUnlockDialogues.split(",").map { it.trim() }
-                    } else {
-                        emptyList()
-                    }
+                    isLoading = true
+                    errorMessage = ""
 
-                    // Khởi tạo đối tượng HouseData đồng bộ cấu trúc mới
                     val newHouse = HouseData(
-                        idHouse = "", // Để trống để Firestore tự động hash sinh mã Document ngẫu nhiên
+                        idHouse = "",
                         nameHouse = nameHouse,
                         rarity = rarity,
                         priceGold = priceGold.toIntOrNull() ?: 0,
                         priceEC = priceEC.toIntOrNull() ?: 0,
                         assetName = assetName,
-                        // 🛠️ Đóng gói đường dẫn ảnh tạm thời chuyển về chuỗi String lưu trữ
-                        imageUrl = selectedImageUri?.toString() ?: ""
+                        imageUrl = imageUrl  // ← dùng URL GitHub nhập tay
                     )
 
-                    // Gọi helper bắn thực thể nhà lên cơ sở dữ liệu Firebase
-                    adminHelper.addHouse(newHouse)
-
-                    // Hoàn thành tác vụ quản trị, quay trở lại màn hình trước
-                    onBack()
+                    adminHelper.addHouse(
+                        house = newHouse,
+                        onSuccess = {
+                            isLoading = false
+                            onBack()
+                        },
+                        onError = { msg ->
+                            isLoading = false
+                            errorMessage = msg
+                        }
+                    )
                 },
+                enabled = !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 16.dp)
             ) {
-                Text("Lưu Nhà Lên Firebase")
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Đang lưu...")
+                } else {
+                    Text("Lưu Nhà Lên Firebase")
+                }
+            }
+
+            if (errorMessage.isNotEmpty()) {
+                Text(
+                    text = errorMessage,
+                    color = Color.Red,
+                    fontSize = 13.sp
+                )
             }
         }
     }
