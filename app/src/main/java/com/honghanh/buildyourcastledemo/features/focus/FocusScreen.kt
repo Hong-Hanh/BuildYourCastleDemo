@@ -189,6 +189,7 @@ fun FocusScreen(
                 }
 
                 // RESOURCE CHIPS
+                // --- 1. TOP BAR (Tìm đến đoạn Resource Chips và sửa lại) ---
                 Row(
                     modifier = Modifier
                         .background(Color.White, RoundedCornerShape(20.dp))
@@ -200,13 +201,15 @@ fun FocusScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("🟡", fontSize = 12.sp)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("1,025", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        // SỬA THÀNH ĐỘNG: Lấy dữ liệu vàng từ ViewModel
+                        Text(text = viewModel.goldAmount.value.toString(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                     Box(modifier = Modifier.width(1.dp).height(16.dp).background(Color(0xFFEEEEEE)))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("🌙", fontSize = 12.sp)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("585", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        // SỬA THÀNH ĐỘNG: Lấy dữ liệu đá quý từ ViewModel
+                        Text(text = viewModel.gemsAmount.value.toString(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -262,7 +265,7 @@ fun FocusScreen(
 
             // --- 4. TIMER ---
             Text(
-                text = if (trangThai == FocusStatus.CHUAN_BI) "25:00" else viewModel.dinhDangThoiGian(thoiGianTong),
+                text = if (trangThai == FocusStatus.CHUAN_BI) "00:00" else viewModel.dinhDangThoiGian(thoiGianTong),
                 fontSize = 64.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF064E3B)

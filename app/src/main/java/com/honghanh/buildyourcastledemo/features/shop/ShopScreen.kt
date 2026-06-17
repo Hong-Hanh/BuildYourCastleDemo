@@ -33,9 +33,7 @@ import coil.compose.AsyncImage
 import com.honghanh.buildyourcastledemo.R
 import com.honghanh.buildyourcastledemo.core.model.HouseData
 import com.honghanh.buildyourcastledemo.core.model.Rarity
-import com.honghanh.buildyourcastledemo.features.shop.FeaturedBannerCard
 import com.honghanh.buildyourcastledemo.ui.theme.BuildYourCastleDemoTheme
-
 
 @Composable
 fun ShopScreen(
@@ -45,8 +43,8 @@ fun ShopScreen(
     val wallet = viewModel.wallet.value
     val danhSachNhaTrongShop = viewModel.listVatPhamLT
 
-    // Giả sử trong hệ thống bạn lưu ID căn nhà đang áp dụng làm hình nền chính
-    val currentHouseIdUsed = "2"
+    // ĐÃ SỬA: Lấy ID chuỗi tự động từ ViewModel (không gán cứng "2")
+    val currentHouseIdUsed = viewModel.currentHouseId.value
 
     ShopContent(
         goldAmount = wallet.gold.toString(),
@@ -55,7 +53,8 @@ fun ShopScreen(
         shopItems = danhSachNhaTrongShop,
         currentHouseIdUsed = currentHouseIdUsed,
         onBack = onBack,
-        onBuyClick = { house -> viewModel.buyHouse(house) }
+        onBuyClick = { house -> viewModel.buyHouse(house) },
+        onEquipClick = { house -> viewModel.equipHouse(house.idHouse) } // ĐÃ SỬA: Truyền hàm áp dụng từ ViewModel xuống
     )
 }
 
@@ -68,7 +67,8 @@ fun ShopContent(
     shopItems: List<HouseData>,
     currentHouseIdUsed: String,
     onBack: () -> Unit,
-    onBuyClick: (HouseData) -> Unit
+    onBuyClick: (HouseData) -> Unit,
+    onEquipClick: (HouseData) -> Unit // ĐÃ SỬA: Đã thêm tham số nhận vào đây để tránh lỗi biên dịch
 ) {
     var selectedItemForDetail by remember { mutableStateOf<HouseData?>(null) }
 
@@ -113,26 +113,26 @@ fun ShopContent(
                 }
             }
 
-            // --- 1. Ô BANNER ƯU ĐÃI TUẦN (Chuẩn UI thiết kế 50/50 theo ảnh mẫu) ---
+            // --- 1. Ô BANNER ƯU ĐÃI TUẦN ---
             item(span = { GridItemSpan(3) }) {
                 FeaturedBannerCard(
                     tagText = "ƯU ĐÃI TUẦN",
                     title = "Căn Hộ Đám Mây",
                     description = "Nâng cấp không gian tập trung của bạn với phong cách tối giản từ tương lai.",
                     buttonText = "Xem chi tiết",
-                    imageUrl = R.drawable.thungrac, // Thay bằng ID ảnh không gian mây
+                    imageUrl = "https://github.com/Hong-Hanh/appAssets/blob/main/banner/banner.png?raw=true",
                     containerColor = Color(0xFF235347)
                 )
             }
 
-            // --- 2. Ô BANNER VẬT PHẨM SẮP RA MẮT (Màu xanh Mint nhạt theo ảnh mẫu) ---
+            // --- 2. Ô BANNER VẬT PHẨM SẮP RA MẮT ---
             item(span = { GridItemSpan(3) }) {
                 FeaturedBannerCard(
                     tagText = "Coming soon",
                     title = "Linh thú",
                     description = "Hệ thống trợ thủ rèn đúc, tăng tốc xây lâu đài sắp sửa ra mắt.",
                     buttonText = "Sắp ra mắt",
-                    imageUrl = R.drawable.thungrac, // Thay bằng ID ảnh chú mèo thần tài tương ứng
+                    imageUrl = "https://github.com/Hong-Hanh/appAssets/blob/main/banner/banner.png?raw=true",
                     containerColor = Color(0xFF90EED6),
                     isDarkTheme = false
                 )
@@ -151,9 +151,8 @@ fun ShopContent(
 
             // --- 3. LƯỚI VẬT PHẨM (3 Ô MỘT HÀNG) ---
             items(items = shopItems, key = { it.idHouse }) { house ->
-                // Giả định logic kiểm tra xem món này đã được mua hay chưa
-                // Trong thực tế bạn có thể check: house.isOwned hoặc nằm trong danh sách đã mua của User
-                val isPurchased = house.priceGold < 20000 || house.idHouse == currentHouseIdUsed
+                // ĐÃ SỬA: Sử dụng trực tiếp thuộc tính dữ liệu thật `isOwned`
+                val isPurchased = house.isOwned
                 val isCurrentEquipped = house.idHouse == currentHouseIdUsed
 
                 ShopItemGridCard(
@@ -168,7 +167,8 @@ fun ShopContent(
 
     // --- POPUP MÔ TẢ CHI TIẾT ---
     selectedItemForDetail?.let { house ->
-        val isPurchased = house.priceGold < 20000 || house.idHouse == currentHouseIdUsed
+        // ĐÃ SỬA: Đồng bộ logic kiểm tra bằng biến thực tế từ đối tượng nhận dạng tự động
+        val isPurchased = house.isOwned
         val isCurrentEquipped = house.idHouse == currentHouseIdUsed
 
         DetailProductDialog(
@@ -178,6 +178,10 @@ fun ShopContent(
             onDismiss = { selectedItemForDetail = null },
             onBuyClick = {
                 onBuyClick(house)
+                selectedItemForDetail = null
+            },
+            onEquipClick = {
+                onEquipClick(house)
                 selectedItemForDetail = null
             }
         )
@@ -200,14 +204,14 @@ fun WalletChip(symbol: String, amount: String) {
     }
 }
 
-// --- COMPONENT BANNER ƯU ĐÃI & SẮP RA MẮT (Sao chép hoàn hảo tỉ lệ ảnh mẫu) ---
+// --- COMPONENT BANNER ƯU ĐÃI & SẮP RA MẮT ---
 @Composable
 fun FeaturedBannerCard(
     tagText: String,
     title: String,
     description: String,
     buttonText: String,
-    imageUrl: Int,
+    imageUrl: String,
     containerColor: Color,
     isDarkTheme: Boolean = true
 ) {
@@ -222,7 +226,6 @@ fun FeaturedBannerCard(
         colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
         Row(modifier = Modifier.fillMaxSize()) {
-            // Cột trái: Text nội dung thông tin
             Column(
                 modifier = Modifier
                     .weight(1.1f)
@@ -231,7 +234,6 @@ fun FeaturedBannerCard(
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    // Tag nhỏ bên trên đầu
                     Surface(
                         color = if (isDarkTheme) Color(0xFF39A989) else Color(0xFF0F342E),
                         shape = RoundedCornerShape(10.dp)
@@ -250,7 +252,6 @@ fun FeaturedBannerCard(
                     Text(text = description, fontSize = 11.sp, color = subTextColor, maxLines = 3, overflow = TextOverflow.Ellipsis, lineHeight = 15.sp)
                 }
 
-                // Nút hành động bo tròn
                 Surface(
                     color = if (isDarkTheme) Color(0xFF0F342E) else Color.White.copy(alpha = 0.5f),
                     shape = RoundedCornerShape(12.dp),
@@ -266,17 +267,19 @@ fun FeaturedBannerCard(
                 }
             }
 
-            // Cột phải: Khung ảnh cắt góc nghệ thuật chìm ra biên phải
             Box(
                 modifier = Modifier
                     .weight(0.9f)
                     .fillMaxHeight()
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.thungrac),
+                AsyncImage(
+                    model = imageUrl, // Truyền link URL vào đây
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    // Hiển thị ảnh tạm thời trong lúc tải hoặc nếu lỗi
+                    placeholder = painterResource(id = R.drawable.thungrac),
+                    error = painterResource(id = R.drawable.thungrac)
                 )
             }
         }
@@ -288,19 +291,19 @@ fun FeaturedBannerCard(
 fun getRarityColors(rarity: Rarity): Pair<Brush, Color> {
     return when (rarity) {
         Rarity.LEGENDARY -> Pair(
-            Brush.linearGradient(listOf(Color(0xFFFFE259), Color(0xFFFFA751))), // Vàng ánh kim
+            Brush.linearGradient(listOf(Color(0xFFFFE259), Color(0xFFFFA751))),
             Color(0xFFD97706)
         )
         Rarity.EPIC -> Pair(
-            Brush.linearGradient(listOf(Color(0xFFD442F5), Color(0xFF7303C0))), // Tím ánh kim
+            Brush.linearGradient(listOf(Color(0xFFD442F5), Color(0xFF7303C0))),
             Color(0xFF8B5CF6)
         )
         Rarity.RARE -> Pair(
-            Brush.linearGradient(listOf(Color(0xFF4FACFE), Color(0xFF00F2FE))), // Xanh dương ánh kim
+            Brush.linearGradient(listOf(Color(0xFF4FACFE), Color(0xFF00F2FE))),
             Color(0xFF0284C7)
         )
         Rarity.COMMON -> Pair(
-            Brush.linearGradient(listOf(Color(0xFF4CAF50), Color(0xFF2E7D32))), // Xanh lá thuần
+            Brush.linearGradient(listOf(Color(0xFF4CAF50), Color(0xFF2E7D32))),
             Color(0xFF2E7D32)
         )
     }
@@ -340,7 +343,6 @@ fun ShopItemGridCard(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            // NHÃN GÓC PHẢI TRÊN: HIỂN THỊ ĐÃ MUA HOẶC ĐANG DÙNG THEO ẢNH MẪU
             if (isPurchased) {
                 Surface(
                     color = if (isCurrentEquipped) Color(0xFF39A989) else Color(0xFF708090),
@@ -360,7 +362,6 @@ fun ShopItemGridCard(
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        // Giá tiền hoặc text trạng thái bên dưới ảnh chân thực
         if (isCurrentEquipped) {
             Text(text = "ĐANG DÙNG", fontSize = 11.sp, color = Color(0xFF39A989), fontWeight = FontWeight.Bold)
         } else if (isPurchased) {
@@ -382,7 +383,8 @@ fun DetailProductDialog(
     isPurchased: Boolean,
     isCurrentEquipped: Boolean,
     onDismiss: () -> Unit,
-    onBuyClick: () -> Unit
+    onBuyClick: () -> Unit,
+    onEquipClick: () -> Unit // ĐÃ SỬA: Tham số tiếp nhận dữ liệu từ cấp cha thành công
 ) {
     var playAnimationByEyeMenu by remember { mutableStateOf(false) }
     val (rarityBrush, mainColor) = getRarityColors(house.rarity)
@@ -409,7 +411,6 @@ fun DetailProductDialog(
                     modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
                 )
 
-                // Khung Media
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -432,18 +433,13 @@ fun DetailProductDialog(
                         )
                     }
 
-                    // Icon Mắt thần xem hoạt họa chuyển động ở góc phải dưới
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(8.dp)
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(
-                                if (playAnimationByEyeMenu) mainColor else Color.Black.copy(
-                                    alpha = 0.6f
-                                )
-                            )
+                            .background(if (playAnimationByEyeMenu) mainColor else Color.Black.copy(alpha = 0.6f))
                             .clickable { playAnimationByEyeMenu = !playAnimationByEyeMenu },
                         contentAlignment = Alignment.Center
                     ) {
@@ -452,11 +448,8 @@ fun DetailProductDialog(
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
-
-
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // XỬ LÝ NÚT BẤM DỰA TRÊN THÀNH TỰU ĐÃ MUA HOẶC CHƯA MƯỢT MÀ
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -480,7 +473,7 @@ fun DetailProductDialog(
                         }
                     } else if (isPurchased) {
                         Button(
-                            onClick = { /* Thực hiện hàm áp dụng hình nền này lên màn chính */ onDismiss() },
+                            onClick = onEquipClick, // ĐÃ SỬA: Gọi hàm áp dụng thực tế từ ViewModel truyền vào
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF235347)),
                             modifier = Modifier.weight(1.5f),
                             shape = RoundedCornerShape(12.dp)
@@ -512,11 +505,10 @@ fun DetailProductDialog(
 fun ShopScreenPreview() {
     BuildYourCastleDemoTheme {
         val mockItems = listOf(
-            HouseData(idHouse = "1", nameHouse = "Căn Hộ Zen", rarity = Rarity.RARE, priceGold = 1200),
-            HouseData(idHouse = "2", nameHouse = "Trạm Gác Núi",  rarity = Rarity.EPIC, priceGold = 5000),
-            HouseData(idHouse = "3", nameHouse = "Căn Hộ Neon", rarity = Rarity.RARE, priceGold = 1200),
-            HouseData(idHouse = "4", nameHouse = "Lều Vải", rarity = Rarity.COMMON, priceGold = 500),
-            HouseData(idHouse = "5", nameHouse = "Nhà Kính",  rarity = Rarity.LEGENDARY, priceEC = 6)
+            HouseData(idHouse = "uuid_zen_01", nameHouse = "Căn Hộ Zen", rarity = Rarity.RARE, priceGold = 1200, imageUrl = "", isOwned = true),
+            HouseData(idHouse = "uuid_mountain_02", nameHouse = "Trạm Gác Núi",  rarity = Rarity.EPIC, priceGold = 5000, imageUrl = "", isOwned = true),
+            HouseData(idHouse = "uuid_neon_03", nameHouse = "Căn Hộ Neon", rarity = Rarity.RARE, priceGold = 1200, imageUrl = "", isOwned = false),
+            HouseData(idHouse = "uuid_tent_04", nameHouse = "Lều Vải", rarity = Rarity.COMMON, priceGold = 500, imageUrl = "", isOwned = false)
         )
 
         ShopContent(
@@ -524,9 +516,10 @@ fun ShopScreenPreview() {
             gemsAmount = "585",
             ecAmount = "0",
             shopItems = mockItems,
-            currentHouseIdUsed = "2",
+            currentHouseIdUsed = "uuid_mountain_02",
             onBack = {},
-            onBuyClick = {}
+            onBuyClick = {},
+            onEquipClick = {}
         )
     }
 }

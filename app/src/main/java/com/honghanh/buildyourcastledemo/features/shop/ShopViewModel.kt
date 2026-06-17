@@ -13,7 +13,8 @@ import com.honghanh.buildyourcastledemo.core.model.UserWallet
 class ShopViewModel : ViewModel() {
     // Danh sách linh thú lấy từ Firebase
     val listVatPhamLT = mutableStateListOf<HouseData>()
-
+    var currentHouseId = mutableStateOf("")
+        private set
     //  ví tiền của người dùng
     var wallet = mutableStateOf(UserWallet(gold = 0, ec = 0, gems = 0))
         private set
@@ -66,5 +67,13 @@ class ShopViewModel : ViewModel() {
         } else {
             println("Không đủ tiền")
         }
+    }
+    fun setCurrentHouseIdFromServer(idFromServer: String) {
+        currentHouseId.value = idFromServer
+    }
+
+    fun equipHouse(houseId: String) {
+        currentHouseId.value = houseId
+        // Gửi ID chuỗi tự động này lên server để lưu lại: updateCurrentHouse(houseId)
     }
 }

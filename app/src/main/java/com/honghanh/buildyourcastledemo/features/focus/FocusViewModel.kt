@@ -10,9 +10,14 @@ import com.honghanh.buildyourcastledemo.core.model.FocusStatus
 class FocusViewModel : ViewModel() {
 
     // Định nghĩa chuẩn thời gian bằng mili-giây (Phút * 60 giây * 1000 mili)
-    private val tgTapTrungMotPhien = 25 * 60 * 1000L // 25 phút cày castle
-    private val thoiGianNghi = 5 * 60 * 1000L       // 5 phút giải lao nghỉ ngơi
-
+    private val tgTapTrungMotPhien = 25 * 1000L // 25 phút cày castle
+    private val thoiGianNghi = 5  * 1000L       // 5 phút giải lao nghỉ ngơi
+    var goldAmount = mutableStateOf(0)
+        private set
+    var gemsAmount = mutableStateOf(0)
+        private set
+    var currentHouseImageUrl = mutableStateOf("https://link-to-your-server-image.com/house.png")
+    // --------------
     // Thời gian tổng đã chọn để đếm ngược (đơn vị: mili-giây)
     var tongTGDaChon = mutableLongStateOf(0L)
         private set
@@ -35,7 +40,7 @@ class FocusViewModel : ViewModel() {
         if (trangThaiHienTai.value != FocusStatus.CHUAN_BI) return
 
         // Đổi số phút người dùng chọn từ giao diện sang mili-giây để nạp vào đồng hồ
-        tongTGDaChon.longValue = tongTGPhut * 60 * 1000L
+        tongTGDaChon.longValue = tongTGPhut * 1000L
 
         // Tính toán xem trong khoảng thời gian tổng này thì bao giờ được nghỉ
         tinhMocNghi()
