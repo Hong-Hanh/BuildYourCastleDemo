@@ -8,6 +8,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -27,6 +28,7 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -53,10 +55,12 @@ fun FocusScreen(
     onNavigateToStatistics: () -> Unit,
     onNavigateToAdmin: () -> Unit
 ) {
+    // ĐƯA ĐỊNH DANH USER LÊN ĐẦU ĐỂ KHÔNG BỊ BÁO ĐỎ UNRESOLVED REFERENCE
+    val mockUserId = "eahgwrhj46et"
+
     val trangThai by viewModel.trangThaiHienTai
     val thoiGianTong by viewModel.tongTGDaChon
     val thoiGianNghiHienTai by viewModel.tgNghi
-
     val messageText by viewModel.thongBaoThuong
 
     var showTimePickerSheet by remember { mutableStateOf(false) }
@@ -67,7 +71,44 @@ fun FocusScreen(
     val coroutineScope = rememberCoroutineScope()
     var tgXacNhan by remember { mutableStateOf(60) }
 
-// Tự chạy đếm ngược khi hết giờ nghỉ
+    val thoiGianYeuCauNhanGiu = 3000L // 3 giây
+    var thoiGianDaNhanGiu by remember { mutableLongStateOf(0L) }
+    var dangNhanGiuButton by remember { mutableStateOf(false) }
+
+    // Hiệu ứng mượt mà cho vòng tròn chạy theo tiến trình thời gian thực
+    val tienTrinhVongTron by animateFloatAsState(
+        targetValue = if (dangNhanGiuButton) (thoiGianDaNhanGiu.toFloat() / thoiGianYeuCauNhanGiu) else 0f,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 50, easing = androidx.compose.animation.core.LinearEasing),
+        label = "Vòng tròn bỏ cuộc"
+    )
+
+    // Đồng bộ tiền tệ từ Firestore khi mở màn hình
+    LaunchedEffect(key1 = mockUserId) {
+        viewModel.taiThongTinViUser(mockUserId)
+    }
+
+    // Luồng xử lý đếm mili-giây khi giữ nút bỏ cuộc
+    LaunchedEffect(dangNhanGiuButton) {
+        if (dangNhanGiuButton) {
+            val thoiGianBatDau = System.currentTimeMillis()
+            while (dangNhanGiuButton) {
+                val thoiGianHienTai = System.currentTimeMillis()
+                thoiGianDaNhanGiu = thoiGianHienTai - thoiGianBatDau
+
+                if (thoiGianDaNhanGiu >= thoiGianYeuCauNhanGiu) {
+                    dangNhanGiuButton = false
+                    thoiGianDaNhanGiu = 0L
+                    viewModel.boCuoc() // Kích hoạt bỏ cuộc thành công!
+                    break
+                }
+                delay(50L)
+            }
+        } else {
+            thoiGianDaNhanGiu = 0L // Thả ngón tay ra giữa chừng -> reset lập tức
+        }
+    }
+
+    // Tự chạy đếm ngược khi hết giờ nghỉ
     LaunchedEffect(thoiGianNghiHienTai) {
         if (thoiGianNghiHienTai == 0L && trangThai == FocusStatus.NGHI_NGOI) {
             tgXacNhan = 60
@@ -76,8 +117,6 @@ fun FocusScreen(
                 tgXacNhan--
             }
             viewModel.xoaThongBao()
-
-// Hết 60s không xác nhận
             viewModel.boCuoc("Phiên tập trung không hoàn thành do hết thời gian xác nhận sau nghỉ.")
         }
     }
@@ -86,11 +125,10 @@ fun FocusScreen(
     if (messageText != null) {
         AlertDialog(
             onDismissRequest = {
-                // Khóa không cho bấm ra ngoài màn hình để tắt nếu đang trong phiên nghỉ
                 if (trangThai != FocusStatus.NGHI_NGOI) viewModel.xoaThongBao()
             },
             properties = DialogProperties(
-                dismissOnBackPress = trangThai != FocusStatus.NGHI_NGOI, // Khóa nút back vật lý khi đang nghỉ
+                dismissOnBackPress = trangThai != FocusStatus.NGHI_NGOI,
                 dismissOnClickOutside = trangThai != FocusStatus.NGHI_NGOI
             ),
             title = {
@@ -113,7 +151,6 @@ fun FocusScreen(
                         color = Color.DarkGray
                     )
 
-                    // NẾU ĐANG NGHỈ: Hiển thị đồng hồ đếm ngược 5 phút siêu to làm tâm điểm
                     if (trangThai == FocusStatus.NGHI_NGOI) {
                         Spacer(modifier = Modifier.height(20.dp))
                         Text(
@@ -147,10 +184,8 @@ fun FocusScreen(
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = when {
-                                trangThai == FocusStatus.NGHI_NGOI && thoiGianNghiHienTai > 0L ->
-                                    Color(0xFFF97316) // cam khi đang nghỉ
-                                trangThai == FocusStatus.NGHI_NGOI && thoiGianNghiHienTai == 0L ->
-                                    Color(0xFF064E3B) // xanh khi hết nghỉ
+                                trangThai == FocusStatus.NGHI_NGOI && thoiGianNghiHienTai > 0L -> Color(0xFFF97316)
+                                trangThai == FocusStatus.NGHI_NGOI && thoiGianNghiHienTai == 0L -> Color(0xFF064E3B)
                                 else -> Color(0xFF064E3B)
                             },
                             contentColor = Color.White
@@ -160,10 +195,8 @@ fun FocusScreen(
                     ) {
                         Text(
                             text = when {
-                                trangThai == FocusStatus.NGHI_NGOI && thoiGianNghiHienTai > 0L ->
-                                    "Bỏ qua nghỉ"
-                                trangThai == FocusStatus.NGHI_NGOI && thoiGianNghiHienTai == 0L ->
-                                    "Xác nhận (${tgXacNhan}s)"
+                                trangThai == FocusStatus.NGHI_NGOI && thoiGianNghiHienTai > 0L -> "Bỏ qua nghỉ"
+                                trangThai == FocusStatus.NGHI_NGOI && thoiGianNghiHienTai == 0L -> "Xác nhận (${tgXacNhan}s)"
                                 else -> "Xác nhận"
                             },
                             fontWeight = FontWeight.Bold
@@ -184,7 +217,6 @@ fun FocusScreen(
                 modifier = Modifier.width(280.dp)
             ) {
                 Spacer(modifier = Modifier.height(24.dp))
-
                 Text(
                     text = "TÍNH NĂNG",
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
@@ -193,7 +225,6 @@ fun FocusScreen(
                     fontSize = 12.sp,
                     letterSpacing = 1.sp
                 )
-
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp), color = Color(0xFFE5E7EB))
 
                 NavigationDrawerItem(
@@ -321,9 +352,7 @@ fun FocusScreen(
                         }
                     }
 
-                    IconButton(onClick = {
-                        coroutineScope.launch { drawerState.open() }
-                    }) {
+                    IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
                         Icon(imageVector = Icons.Default.Menu, contentDescription = "Mở Menu", tint = Color.Gray)
                     }
                 }
@@ -357,7 +386,6 @@ fun FocusScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
-
                     // [THÀNH PHẦN 1]: NÚT CHUYỂN MẪU
                     Button(
                         onClick = onNavigateToStorage,
@@ -373,43 +401,29 @@ fun FocusScreen(
                             tint = Color(0xFF064E3B)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            "CHUYỂN MẪU",
-                            color = Color(0xFF064E3B),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text("CHUYỂN MẪU", color = Color(0xFF064E3B), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // [THÀNH PHẦN 2]: DYNAMIC TIMER DISPLAY (ĐỒNG HỒ THỜI GIAN)
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                    // [THÀNH PHẦN 2]: ĐỒNG HỒ THỜI GIAN
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = when (trangThai) {
                                 FocusStatus.CHUAN_BI -> "00:00"
                                 FocusStatus.NGHI_NGOI -> viewModel.dinhDangThoiGian(viewModel.cotMocNghi)
-
                                 else -> viewModel.dinhDangThoiGian(thoiGianTong)
                             },
-
                             fontSize = 58.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (trangThai == FocusStatus.NGHI_NGOI) Color(0xFF0E3C87) else Color(0xFF064E3B)
                         )
-
-
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    // Khoảng trống động giữ nút bấm chính cố định
-
-
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // [THÀNH PHẦN 3]: NÚT PLAY CHÍNH (PLAY/STOP DYNAMIC BUTTON)
+                    // [THÀNH PHẦN 3]: NÚT BẤM CHÍNH TÂM (Đã sửa triệt để cử chỉ và vòng tròn)
                     val buttonColor = when (trangThai) {
                         FocusStatus.CHUAN_BI -> Color(0xFF064E3B)
                         FocusStatus.DANG_CHAY -> Color(0xFFBA1A1A)
@@ -423,32 +437,62 @@ fun FocusScreen(
                     }
 
                     Box(
-                        modifier = Modifier
-                            .size(76.dp)
-                            .clip(CircleShape)
-                            .background(buttonColor)
-                            .clickable {
-                                when (trangThai) {
-                                    FocusStatus.CHUAN_BI -> showTimePickerSheet = true
-                                    FocusStatus.DANG_CHAY -> viewModel.boCuoc()
-                                    FocusStatus.NGHI_NGOI -> { /* Khóa click nút Play dưới nền khi đang hiển thị popup nghỉ */ }
-                                    else -> {
-                                        viewModel.resetVeChuanBi()
-                                        targetText = ""
-                                    }
-                                }
-                            },
+                        modifier = Modifier.size(96.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = buttonIcon,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(38.dp)
-                        )
+                        if (trangThai == FocusStatus.DANG_CHAY && dangNhanGiuButton) {
+                            CircularProgressIndicator(
+                                progress = { tienTrinhVongTron },
+                                modifier = Modifier.fillMaxSize(),
+                                color = Color(0xFFBA1A1A),
+                                trackColor = Color(0xFFE5E7EB),
+                                strokeWidth = 5.dp,
+                                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .size(76.dp)
+                                .clip(CircleShape)
+                                .background(buttonColor)
+                                .pointerInput(trangThai) {
+                                    // SỬ DỤNG detectTapGestures ĐỂ TÁCH BIỆT CLICK VÀ NHẤN GIỮ CHÍNH XÁC 100%
+                                    detectTapGestures(
+                                        onTap = {
+                                            when (trangThai) {
+                                                FocusStatus.CHUAN_BI -> showTimePickerSheet = true
+                                                FocusStatus.DANG_CHAY -> { /* Đang chạy thì bắt buộc phải giữ, bấm click nhẹ không nhận */ }
+                                                FocusStatus.NGHI_NGOI -> { /* Khóa click khi nghỉ */ }
+                                                else -> {
+                                                    viewModel.resetVeChuanBi()
+                                                    targetText = ""
+                                                }
+                                            }
+                                        },
+                                        onPress = {
+                                            if (trangThai == FocusStatus.DANG_CHAY) {
+                                                try {
+                                                    dangNhanGiuButton = true
+                                                    awaitRelease() // Chờ cho đến khi người dùng nhấc ngón tay ra
+                                                } finally {
+                                                    dangNhanGiuButton = false // Đảm bảo luôn reset khi thả tay/hủy cử chỉ
+                                                }
+                                            }
+                                        }
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = buttonIcon,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(38.dp)
+                            )
+                        }
                     }
                 }
-
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
@@ -491,14 +535,7 @@ fun FocusScreen(
                             )
 
                             Spacer(modifier = Modifier.height(16.dp))
-
-                            Text(
-                                text = "Thiết lập phiên tập trung",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF064E3B)
-                            )
-
+                            Text(text = "Thiết lập phiên tập trung", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF064E3B))
                             Spacer(modifier = Modifier.height(20.dp))
 
                             OutlinedTextField(
@@ -516,14 +553,7 @@ fun FocusScreen(
                             )
 
                             Spacer(modifier = Modifier.height(20.dp))
-
-                            Text(
-                                text = "Chọn thời gian tập trung (Phút)",
-                                fontSize = 14.sp,
-                                color = Color.Gray,
-                                modifier = Modifier.align(Alignment.Start)
-                            )
-
+                            Text(text = "Chọn thời gian tập trung (Phút)", fontSize = 14.sp, color = Color.Gray, modifier = Modifier.align(Alignment.Start))
                             Spacer(modifier = Modifier.height(12.dp))
 
                             val times = listOf(5, 15, 25, 35, 45, 50, 60, 90, 120)
@@ -538,24 +568,17 @@ fun FocusScreen(
                             Button(
                                 onClick = {
                                     showTimePickerSheet = false
-                                    val mockUserId = "eahgwrhj46et"
                                     viewModel.batDauTapTrung(
                                         tongTGPhut = selectedTimeForStart,
-                                        userId = mockUserId,       // Biến chứa ID của user hiện tại
-                                        mucTieuText = targetText)
+                                        userId = mockUserId,
+                                        mucTieuText = targetText
+                                    )
                                 },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(52.dp),
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF064E3B)),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text(
-                                    text = "XÁC NHẬN BẮT ĐẦU",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
+                                Text(text = "XÁC NHẬN BẮT ĐẦU", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             }
                         }
                     }
@@ -582,10 +605,8 @@ fun TimeHorizontalPicker(
             val visibleItemsInfo = layoutInfo.visibleItemsInfo
             if (visibleItemsInfo.isEmpty()) 0
             else {
-                val center = layoutInfo.viewportStartOffset +
-                        (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset) / 2
-                visibleItemsInfo.minByOrNull { Math.abs((it.offset + it.size / 2) - center) }?.index
-                    ?: 0
+                val center = layoutInfo.viewportStartOffset + (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset) / 2
+                visibleItemsInfo.minByOrNull { Math.abs((it.offset + it.size / 2) - center) }?.index ?: 0
             }
         }
     }
@@ -601,9 +622,7 @@ fun TimeHorizontalPicker(
     }
 
     BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(50.dp),
+        modifier = Modifier.fillMaxWidth().height(50.dp),
         contentAlignment = Alignment.Center
     ) {
         val halfWidth = maxWidth / 2
@@ -631,12 +650,7 @@ fun TimeHorizontalPicker(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "$time",
-                        fontSize = 18.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = color
-                    )
+                    Text(text = "$time", fontSize = 18.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, color = color)
                 }
             }
         }

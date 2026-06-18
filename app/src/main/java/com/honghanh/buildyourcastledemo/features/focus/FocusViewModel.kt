@@ -4,24 +4,31 @@ import android.os.CountDownTimer
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.honghanh.buildyourcastledemo.core.model.FocusSession
 import com.honghanh.buildyourcastledemo.core.model.FocusStatus
+import com.honghanh.buildyourcastledemo.features.focus.data.FocusLocalRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.Date
 import java.util.UUID
 
-class FocusViewModel : ViewModel() {
+class FocusViewModel() : ViewModel() {
 
     // Khởi tạo trực tiếp instance Firestore để giải quyết triệt để lỗi Unresolved reference
-    private val db = FirebaseFirestore.getInstance()
+// Trong FocusViewModel.kt, đổi dòng khai báo db thành:
+    private val db = com.honghanh.buildyourcastledemo.core.database.FirebaseProvider.firestore
 
     private val tgTapTrungMotPhien = 25 * 100L
     private val thoiGianNghi = 5 * 1000L
 
-    var goldAmount = mutableStateOf(0)
+    var goldAmount = androidx.compose.runtime.mutableIntStateOf(0)
         private set
-    var ECAmount = mutableStateOf(0)
+    var ECAmount = androidx.compose.runtime.mutableIntStateOf(0)
+        private set
+    var isLoadingWallet = androidx.compose.runtime.mutableStateOf(true)
         private set
     var currentHouseImageUrl = mutableStateOf("https://link-to-your-server-image.com/house.png")
 
@@ -49,6 +56,8 @@ class FocusViewModel : ViewModel() {
 
     private var boDemGio: CountDownTimer? = null
 
+
+
     // ĐÃ SỬA: Nhận thêm userId và mục tiêuText động từ UI ném xuống khi bấm bắt đầu
     fun batDauTapTrung(tongTGPhut: Int, userId: String, mucTieuText: String) {
         if (trangThaiHienTai.value != FocusStatus.CHUAN_BI) return
@@ -61,6 +70,37 @@ class FocusViewModel : ViewModel() {
 
         tinhMocNghi()
         kichHoatTapTrung()
+    }
+    fun taiThongTinViUser(userId: String) {
+        if (userId.isEmpty()) return
+        this.currentUserId = userId
+
+        // 🔥 Đẩy việc đọc dữ liệu xuống Luồng nền IO để không gây lag giao diện
+        viewModelScope.launch(Dispatchers.IO) {
+            db.collection("UserProfile").document(userId)
+                .get(com.google.firebase.firestore.Source.CACHE) // Đọc từ cache trước cho nhanh
+                .addOnSuccessListener { document ->
+                    if (document != null && document.exists()) {
+                        val vangFirebase = document.getLong("currentGold")?.toInt() ?: 0
+                        val ecFirebase = document.getLong("currentEC")?.toInt() ?: 0
+
+                        // Cập nhật State giao diện thì bắt buộc phải quay lại Luồng chính (Main)
+                        goldAmount.value = vangFirebase
+                        ECAmount.value = ecFirebase
+                    }
+                }
+
+            // Âm thầm kiểm tra server từ xa sau nếu có mạng
+            db.collection("UserProfile").document(userId).get(com.google.firebase.firestore.Source.SERVER)
+                .addOnSuccessListener { document ->
+                    if (document != null && document.exists()) {
+                        val vangFirebase = document.getLong("currentGold")?.toInt() ?: 0
+                        val ecFirebase = document.getLong("currentEC")?.toInt() ?: 0
+                        goldAmount.value = vangFirebase
+                        ECAmount.value = ecFirebase
+                    }
+                }
+        }
     }
 
     private fun tinhMocNghi() {
@@ -91,37 +131,52 @@ class FocusViewModel : ViewModel() {
     }
 
     // ĐÃ SỬA: Hàm tự động đóng gói dữ liệu và đẩy lên Firestore dạng "Reference" khi HOÀN THÀNH
+    // ĐÃ SỬA: Thực hiện cộng dồn tiền trực tiếp lên Firestore document của User
     fun thuongVang() {
-        val soVangThuong = soPhutMucTieuBanDau * 12 // Thưởng theo số phút thực tế
+        val soVangThuong = soPhutMucTieuBanDau * 12
 
+        // 1. Cập nhật RAM để UI nhảy số luôn
         goldAmount.value = goldAmount.value + soVangThuong
         thongBaoThuong.value = "Chúc mừng! Bạn đã hoàn thành xuất sắc $soPhutMucTieuBanDau phút tập trung và nhận được $soVangThuong xu vàng để xây dựng lâu đài!"
 
-        // Nếu không có userId truyền vào từ trước (chưa đăng nhập/lỗi), không đẩy dữ liệu
-        if (currentUserId.isEmpty()) return
+        if (currentUserId.isEmpty()) {
+            currentUserId = "eahgwrhj46et" // ID test phòng hờ
+        }
 
-        // 1. Tạo liên kết con trỏ Reference động
-        val userConnectRef = db.collection("userprofile").document(currentUserId)
+        // 2. Tạo liên kết con trỏ Reference đến hồ sơ người dùng
+        val userConnectRef = db.collection("UserProfile").document(currentUserId)
 
-        // 2. Tính toán thời gian thực tế dựa trên số phút mục tiêu ban đầu
+        // 🔥 SỬA ĐOẠN NÀY: Dùng .set + FieldValue.increment để bao thầu cả tạo mới lẫn cập nhật
+        val updateData = mapOf(
+            "currentGold" to com.google.firebase.firestore.FieldValue.increment(soVangThuong.toLong()),
+            "currentEC" to com.google.firebase.firestore.FieldValue.increment(0L) // Giữ nguyên EC hoặc tăng nếu muốn
+        )
+
+        userConnectRef.set(updateData, com.google.firebase.firestore.SetOptions.merge())
+            .addOnSuccessListener {
+                android.util.Log.d("Firebase_Success", "Đã cập nhật/Tạo mới thành công userprofile!")
+            }
+            .addOnFailureListener { e ->
+                android.util.Log.e("Firebase_Error", "Lỗi cập nhật userprofile: ${e.message}")
+            }
+
+        // 3. Đóng gói Model lịch sử và đẩy vào "focussession" (Giữ nguyên đoạn này của bạn)
         val currentTimestamp = Timestamp(Date())
         val startTimestamp = Timestamp(Date(System.currentTimeMillis() - (soPhutMucTieuBanDau * 60000L)))
 
-        // 3. Đóng gói Model FocusSession
         val newSession = FocusSession(
             sessionId = UUID.randomUUID().toString(),
-            userId = userConnectRef, // Truyền Reference xịn
+            userId = userConnectRef,
             startTime = startTimestamp,
             endTime = currentTimestamp,
             targetDuration = soPhutMucTieuBanDau,
             actualDuration = soPhutMucTieuBanDau,
             status = "HOAN_THANH",
-            targetText = currentTargetText, // Chuỗi động nhập từ UI
+            targetText = currentTargetText,
             goldEarned = soVangThuong,
             ECEarned = 0
         )
 
-        // 4. Bắn thẳng lên bảng "focussession"
         db.collection("focussession")
             .document(newSession.sessionId)
             .set(newSession)

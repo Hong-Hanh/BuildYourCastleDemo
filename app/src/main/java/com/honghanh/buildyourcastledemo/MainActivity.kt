@@ -27,6 +27,7 @@ import com.honghanh.buildyourcastledemo.ui.theme.BuildYourCastleDemoTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.honghanh.buildyourcastledemo.core.database.FirebaseProvider.firestore
         enableEdgeToEdge()
         setContent {
             BuildYourCastleDemoTheme {
