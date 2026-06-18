@@ -317,7 +317,7 @@ fun FocusScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("🌙", fontSize = 12.sp)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = viewModel.gemsAmount.value.toString(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(text = viewModel.ECAmount.value.toString(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -538,7 +538,11 @@ fun FocusScreen(
                             Button(
                                 onClick = {
                                     showTimePickerSheet = false
-                                    viewModel.batDauTapTrung(selectedTimeForStart)
+                                    val mockUserId = "eahgwrhj46et"
+                                    viewModel.batDauTapTrung(
+                                        tongTGPhut = selectedTimeForStart,
+                                        userId = mockUserId,       // Biến chứa ID của user hiện tại
+                                        mucTieuText = targetText)
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()

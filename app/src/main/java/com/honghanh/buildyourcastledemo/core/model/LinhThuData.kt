@@ -6,7 +6,7 @@ data class LinhThuData(
     val nameLinhThu: String = "",
     val rarity: Rarity = Rarity.COMMON,
     val priceGold: Int=0,
-    val priceGems: Int=0,
+
     //Era Chronos, viết tắt EC
     val priceEC: Int=0,
     //nhóm đồ họa

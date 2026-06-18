@@ -4,72 +4,70 @@ import android.os.CountDownTimer
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FirebaseFirestore
+import com.honghanh.buildyourcastledemo.core.model.FocusSession
 import com.honghanh.buildyourcastledemo.core.model.FocusStatus
+import java.util.Date
+import java.util.UUID
 
-// Lớp giữ nguyên trạng thái khi xoay màn hình hoặc thay đổi cấu hình ứng dụng
 class FocusViewModel : ViewModel() {
 
-    // Định nghĩa chuẩn thời gian bằng mili-giây (Phút * 60 giây * 1000 mili)
-    private val tgTapTrungMotPhien = 25 * 100L // 25 phút cày castle (đang để demo chạy nhanh)
-    private val thoiGianNghi = 5  * 1000L       // 5 phút giải lao nghỉ ngơi
+    // Khởi tạo trực tiếp instance Firestore để giải quyết triệt để lỗi Unresolved reference
+    private val db = FirebaseFirestore.getInstance()
 
-    // Quản lý số vàng và kim cương cục bộ trong màn hình tập trung
+    private val tgTapTrungMotPhien = 25 * 100L
+    private val thoiGianNghi = 5 * 1000L
+
     var goldAmount = mutableStateOf(0)
         private set
-    var gemsAmount = mutableStateOf(0)
+    var ECAmount = mutableStateOf(0)
         private set
     var currentHouseImageUrl = mutableStateOf("https://link-to-your-server-image.com/house.png")
 
-    // --------------
-    // Thời gian tổng đã chọn để đếm ngược (đơn vị: mili-giây)
     var tongTGDaChon = mutableLongStateOf(0L)
         private set
 
-    // Lưu lại tổng số phút ban đầu người dùng chọn để làm căn cứ tính tiền thưởng
     private var soPhutMucTieuBanDau = 0
 
-    // Đồng hồ phụ đếm thời gian nghỉ (đơn vị: mili-giây)
+    // THÊM MỚI: Biến lưu trữ ID người dùng hiện tại (sẽ được truyền từ UI vào lúc bắt đầu)
+    private var currentUserId: String = ""
+
+    // THÊM MỚI: Chuỗi mục tiêu do người dùng nhập từ TextField ở UI
+    private var currentTargetText: String = ""
+
     var tgNghi = mutableLongStateOf(0L)
         private set
 
-    // Mốc để hệ thống nhận biết khi nào cần chuyển sang trạng thái giải lao
-     var cotMocNghi = 0L
-    private set
+    var cotMocNghi = 0L
+        private set
 
-    // Trạng thái cốt lõi điều khiển toàn bộ bộ phát sóng UI
     var trangThaiHienTai = mutableStateOf(FocusStatus.CHUAN_BI)
         private set
 
-    // THÊM MỚI: State thông báo để UI hứng và hiển thị Dialog chúc mừng
     var thongBaoThuong = mutableStateOf<String?>(null)
 
     private var boDemGio: CountDownTimer? = null
 
-
-
-    // Hàm 1: Nhận số phút từ thanh kéo ngang (BottomSheet) để bắt đầu kích hoạt
-    fun batDauTapTrung(tongTGPhut: Int) {
+    // ĐÃ SỬA: Nhận thêm userId và mục tiêuText động từ UI ném xuống khi bấm bắt đầu
+    fun batDauTapTrung(tongTGPhut: Int, userId: String, mucTieuText: String) {
         if (trangThaiHienTai.value != FocusStatus.CHUAN_BI) return
 
-        // Lưu lại số phút để tí nữa tính toán số vàng thưởng tương ứng
-        soPhutMucTieuBanDau = tongTGPhut
+        this.currentUserId = userId
+        this.currentTargetText = mucTieuText
+        this.soPhutMucTieuBanDau = tongTGPhut
 
-        // Đổi số phút người dùng chọn từ giao diện sang mili-giây để nạp vào đồng hồ
         tongTGDaChon.longValue = tongTGPhut * 100L
 
-        // Tính toán xem trong khoảng thời gian tổng này thì bao giờ được nghỉ
         tinhMocNghi()
         kichHoatTapTrung()
     }
 
-    // Hàm bổ trợ: Tính toán mốc nghỉ dựa trên thời gian còn lại
     private fun tinhMocNghi() {
         cotMocNghi = tongTGDaChon.longValue - tgTapTrungMotPhien
-        // Nếu tổng thời gian còn lại ngắn hơn 25 phút, cày một mạch về 0 luôn không nghỉ giữa chừng
         if (cotMocNghi < 0) cotMocNghi = 0L
     }
 
-    // Hàm 2: Kích hoạt chạy đếm ngược tập trung
     private fun kichHoatTapTrung() {
         trangThaiHienTai.value = FocusStatus.DANG_CHAY
         boDemGio?.cancel()
@@ -78,7 +76,6 @@ class FocusViewModel : ViewModel() {
             override fun onTick(millisUntilFinished: Long) {
                 tongTGDaChon.longValue = millisUntilFinished
 
-                // ĐÃ SỬA: Bỏ kiểm tra <= 0L ở đây để tránh bị gọi trùng với onFinish()
                 if (tongTGDaChon.longValue <= cotMocNghi && cotMocNghi > 0L) {
                     boDemGio?.cancel()
                     kichHoatNghiNgoi()
@@ -88,31 +85,52 @@ class FocusViewModel : ViewModel() {
             override fun onFinish() {
                 tongTGDaChon.longValue = 0L
                 trangThaiHienTai.value = FocusStatus.HOAN_THANH
-                thuongVang() // Thực hiện cộng xu và kích hoạt thông báo khi kết thúc chuẩn xác
+                thuongVang()
             }
         }.start()
     }
 
-    // ĐÃ SỬA: Hàm cộng vàng và bắn thông báo lên màn hình UI
+    // ĐÃ SỬA: Hàm tự động đóng gói dữ liệu và đẩy lên Firestore dạng "Reference" khi HOÀN THÀNH
     fun thuongVang() {
-        // Thuật toán: Cứ 1 phút tập trung đổi lấy 10 xu vàng
-        val soVangThuong = soPhutMucTieuBanDau * 10
+        val soVangThuong = soPhutMucTieuBanDau * 12 // Thưởng theo số phút thực tế
 
-        // 1. Thực hiện cộng dồn tiền vào State để cập nhật UI
         goldAmount.value = goldAmount.value + soVangThuong
-
-        // 2. Gán nội dung thông báo vào State thông báo thưởng
         thongBaoThuong.value = "Chúc mừng! Bạn đã hoàn thành xuất sắc $soPhutMucTieuBanDau phút tập trung và nhận được $soVangThuong xu vàng để xây dựng lâu đài!"
 
-        println("Log Hệ Thống: Đã cộng $soVangThuong vàng. Số vàng hiện tại: ${goldAmount.value}")
+        // Nếu không có userId truyền vào từ trước (chưa đăng nhập/lỗi), không đẩy dữ liệu
+        if (currentUserId.isEmpty()) return
+
+        // 1. Tạo liên kết con trỏ Reference động
+        val userConnectRef = db.collection("userprofile").document(currentUserId)
+
+        // 2. Tính toán thời gian thực tế dựa trên số phút mục tiêu ban đầu
+        val currentTimestamp = Timestamp(Date())
+        val startTimestamp = Timestamp(Date(System.currentTimeMillis() - (soPhutMucTieuBanDau * 60000L)))
+
+        // 3. Đóng gói Model FocusSession
+        val newSession = FocusSession(
+            sessionId = UUID.randomUUID().toString(),
+            userId = userConnectRef, // Truyền Reference xịn
+            startTime = startTimestamp,
+            endTime = currentTimestamp,
+            targetDuration = soPhutMucTieuBanDau,
+            actualDuration = soPhutMucTieuBanDau,
+            status = "HOAN_THANH",
+            targetText = currentTargetText, // Chuỗi động nhập từ UI
+            goldEarned = soVangThuong,
+            ECEarned = 0
+        )
+
+        // 4. Bắn thẳng lên bảng "focussession"
+        db.collection("focussession")
+            .document(newSession.sessionId)
+            .set(newSession)
     }
 
-    // Hàm xoá thông báo sau khi người dùng bấm nút "Đóng" hoặc "Nhận" trên Dialog UI
     fun xoaThongBao() {
         thongBaoThuong.value = null
     }
 
-    // Hàm 3: Kích hoạt đếm ngược thời gian nghỉ ngơi giải lao
     private fun kichHoatNghiNgoi() {
         trangThaiHienTai.value = FocusStatus.NGHI_NGOI
         tgNghi.longValue = thoiGianNghi
@@ -126,43 +144,62 @@ class FocusViewModel : ViewModel() {
 
             override fun onFinish() {
                 tgNghi.longValue = 0L
-                // Khi hết 5 phút nghỉ, CHỈ bắn thông báo, KHÔNG tự động kích hoạt chạy tiếp ngầm nữa
                 thongBaoThuong.value = "☕ Hết giờ nghỉ ngơi rồi! Hãy bấm xác nhận để bắt đầu phiên làm việc tiếp theo nào."
             }
         }.start()
     }
+
     fun xacNhanVaoPhienTiepTheo() {
         tinhMocNghi()
         kichHoatTapTrung()
     }
 
-
-
-    // Hàm 5: Người dùng không muốn nghỉ mà chọn bỏ qua để cày tiếp tục
     fun boQuaNghi() {
         if (trangThaiHienTai.value == FocusStatus.NGHI_NGOI) {
-            boDemGio?.cancel() // Huỷ đếm ngược 5 phút nghỉ
+            boDemGio?.cancel()
             tgNghi.longValue = 0L
             tinhMocNghi()
-            kichHoatTapTrung() // Vào việc luôn
-            println("Log: Đã chủ động bỏ qua phiên nghỉ ngơi.")
+            kichHoatTapTrung()
         }
     }
 
-    // Hàm 6: Huỷ tiến trình đếm ngược giữa chừng
+    // ĐÃ SỬA: Đẩy luôn lịch sử hủy phiên lên Firebase để sau này hiển thị lên Trang cá nhân dạng "Bỏ cuộc"
     fun boCuoc(thongBao: String = "Bạn đã hủy phiên tập trung!") {
         if (trangThaiHienTai.value == FocusStatus.DANG_CHAY ||
             trangThaiHienTai.value == FocusStatus.NGHI_NGOI
         ) {
             boDemGio?.cancel()
             trangThaiHienTai.value = FocusStatus.BO_CUOC
-            thongBaoThuong.value = thongBao  // ← dùng thông báo được truyền vào
+            thongBaoThuong.value = thongBao
+
+            if (currentUserId.isNotEmpty()) {
+                val userConnectRef = db.collection("userprofile").document(currentUserId)
+
+                // Tính số phút thực tế cày được trước khi bấm nút Hủy
+                val soGiayDaChay = (soPhutMucTieuBanDau * 100L - tongTGDaChon.longValue) / 100
+                val soPhutThucTe = (soGiayDaChay / 60).toInt()
+
+                val cancelSession = FocusSession(
+                    sessionId = UUID.randomUUID().toString(),
+                    userId = userConnectRef,
+                    startTime = Timestamp(Date(System.currentTimeMillis() - (soPhutThucTe * 60000L))),
+                    endTime = Timestamp(Date()),
+                    targetDuration = soPhutMucTieuBanDau,
+                    actualDuration = soPhutThucTe, // Chỉ ghi nhận số phút thực tế làm được
+                    status = "BO_CUOC", // Đánh dấu trạng thái tạch
+                    targetText = currentTargetText,
+                    goldEarned = 0, // Bỏ cuộc thì không có quà
+                    ECEarned = 0
+                )
+
+                db.collection("focussession").document(cancelSession.sessionId).set(cancelSession)
+            }
+
             tongTGDaChon.longValue = 0L
             tgNghi.longValue = 0L
         }
     }
 
-    // Hàm 7: Trở về màn hình trạng thái ban đầu để thiết lập phiên mới
     fun resetVeChuanBi() {
         boDemGio?.cancel()
         trangThaiHienTai.value = FocusStatus.CHUAN_BI
@@ -171,8 +208,6 @@ class FocusViewModel : ViewModel() {
         soPhutMucTieuBanDau = 0
     }
 
-
-    // Hàm helper: Định dạng mm:ss
     fun dinhDangThoiGian(tgMiliGiay: Long): String {
         val tongGiay = tgMiliGiay / 100
         val phut = tongGiay / 60
