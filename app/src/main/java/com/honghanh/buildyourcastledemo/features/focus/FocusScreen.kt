@@ -40,6 +40,7 @@ import com.honghanh.buildyourcastledemo.core.model.FocusStatus
 import com.honghanh.buildyourcastledemo.ui.theme.BuildYourCastleDemoTheme
 import kotlinx.coroutines.launch
 import androidx.compose.ui.window.DialogProperties
+import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 
 @Composable
@@ -73,6 +74,7 @@ fun FocusScreen(
         goldAmount = viewModel.goldAmount.value,
         ecAmount = viewModel.ECAmount.value,
         cotMocNghi = viewModel.cotMocNghi,
+        currentHouseImageUrl = viewModel.currentHouseImageUrl.value,
         dinhDangThoiGian = { miliseconds -> viewModel.dinhDangThoiGian(miliseconds) },
         onXoaThongBao = { viewModel.xoaThongBao() },
         onBoCuoc = { lyDo -> viewModel.boCuoc(lyDo) },
@@ -102,6 +104,7 @@ fun FocusContent(
     goldAmount: Int,
     ecAmount: Int,
     cotMocNghi: Long,
+    currentHouseImageUrl: String,
     dinhDangThoiGian: (Long) -> String,
     onXoaThongBao: () -> Unit,
     onBoCuoc: (String) -> Unit,
@@ -116,6 +119,7 @@ fun FocusContent(
     onNavigateToStorage: () -> Unit,
     onNavigateToStatistics: () -> Unit,
     onNavigateToAdmin: () -> Unit
+
 ) {
     var showTimePickerSheet by remember { mutableStateOf(false) }
     var selectedTimeForStart by remember { mutableIntStateOf(25) }
@@ -405,9 +409,11 @@ fun FocusContent(
                         .padding(horizontal = 16.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.thungrac),
+                    AsyncImage(
+                        model = currentHouseImageUrl,
                         contentDescription = null,
+                        placeholder = painterResource(R.drawable.thungrac),
+                        error = painterResource(R.drawable.thungrac),
                         modifier = Modifier.fillMaxSize(0.9f),
                         contentScale = ContentScale.Fit
                     )
@@ -680,6 +686,7 @@ fun FocusScreenPreview() {
             goldAmount = 1250,
             ecAmount = 45,
             cotMocNghi = 300000L,
+            currentHouseImageUrl = "",
             dinhDangThoiGian = { "25:00" },
             onXoaThongBao = {},
             onBoCuoc = {},

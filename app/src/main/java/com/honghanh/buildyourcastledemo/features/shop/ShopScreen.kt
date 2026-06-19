@@ -47,14 +47,13 @@ fun ShopScreen(
     val currentHouseIdUsed = viewModel.currentHouseId.value
 
     ShopContent(
-        goldAmount = wallet.gold.toString(),
-        gemsAmount = wallet.gems.toString(),
-        ecAmount = wallet.ec.toString(),
+        goldAmount = wallet.currentGold.toString(),
+        ecAmount = wallet.currentEC.toString(),
         shopItems = danhSachNhaTrongShop,
         currentHouseIdUsed = currentHouseIdUsed,
         onBack = onBack,
         onBuyClick = { house -> viewModel.buyHouse(house) },
-        onEquipClick = { house -> viewModel.equipHouse(house.idHouse) } // ĐÃ SỬA: Truyền hàm áp dụng từ ViewModel xuống
+        onEquipClick = { house -> viewModel.equipHouse(house.idHouse, house.imageUrl) } // ĐÃ SỬA: Truyền hàm áp dụng từ ViewModel xuống
     )
 }
 
@@ -62,7 +61,6 @@ fun ShopScreen(
 @Composable
 fun ShopContent(
     goldAmount: String,
-    gemsAmount: String,
     ecAmount: String,
     shopItems: List<HouseData>,
     currentHouseIdUsed: String,
@@ -88,7 +86,7 @@ fun ShopContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         WalletChip("🪙", goldAmount)
-                        WalletChip("🌙", gemsAmount)
+                        WalletChip("🌙", ecAmount)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFF8F9FA))
@@ -425,9 +423,11 @@ fun DetailProductDialog(
                             Text(text = "[ SKELETAL RIVE ANIMATION RUNNING ]", fontSize = 10.sp, color = mainColor, fontWeight = FontWeight.Bold)
                         }
                     } else {
-                        Image(
-                            painter = painterResource(id = R.drawable.thungrac),
+                        AsyncImage(
+                            model = house.imageUrl, // ← load đúng ảnh của item
                             contentDescription = null,
+                            placeholder = painterResource(R.drawable.thungrac),
+                            error = painterResource(R.drawable.thungrac),
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
                         )
@@ -513,7 +513,6 @@ fun ShopScreenPreview() {
 
         ShopContent(
             goldAmount = "1,025",
-            gemsAmount = "585",
             ecAmount = "0",
             shopItems = mockItems,
             currentHouseIdUsed = "uuid_mountain_02",

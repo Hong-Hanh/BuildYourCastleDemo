@@ -31,7 +31,7 @@ class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel(
         private set
     var isLoadingWallet = androidx.compose.runtime.mutableStateOf(true)
         private set
-    var currentHouseImageUrl = mutableStateOf("https://link-to-your-server-image.com/house.png")
+
 
     var tongTGDaChon = mutableLongStateOf(0L)
         private set
@@ -56,7 +56,8 @@ class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel(
     var thongBaoThuong = mutableStateOf<String?>(null)
 
     private var boDemGio: CountDownTimer? = null
-
+    var currentHouseImageUrl = mutableStateOf("")
+        private set
 
 
     // ĐÃ SỬA: Nhận thêm userId và mục tiêuText động từ UI ném xuống khi bấm bắt đầu
@@ -76,29 +77,24 @@ class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel(
         if (userId.isEmpty()) return
         this.currentUserId = userId
 
-        // 🔥 Đẩy việc đọc dữ liệu xuống Luồng nền IO để không gây lag giao diện
         viewModelScope.launch(Dispatchers.IO) {
             db.collection("UserProfile").document(userId)
-                .get(com.google.firebase.firestore.Source.CACHE) // Đọc từ cache trước cho nhanh
+                .get(com.google.firebase.firestore.Source.CACHE)
                 .addOnSuccessListener { document ->
                     if (document != null && document.exists()) {
-                        val vangFirebase = document.getLong("currentGold")?.toInt() ?: 0
-                        val ecFirebase = document.getLong("currentEC")?.toInt() ?: 0
-
-                        // Cập nhật State giao diện thì bắt buộc phải quay lại Luồng chính (Main)
-                        goldAmount.value = vangFirebase
-                        ECAmount.value = ecFirebase
+                        goldAmount.value = document.getLong("currentGold")?.toInt() ?: 0
+                        ECAmount.value = document.getLong("currentEC")?.toInt() ?: 0
+                        currentHouseImageUrl.value = document.getString("currentHouseImageUrl") ?: "" // ← đọc thẳng từ document
                     }
                 }
 
-            // Âm thầm kiểm tra server từ xa sau nếu có mạng
-            db.collection("UserProfile").document(userId).get(com.google.firebase.firestore.Source.SERVER)
+            db.collection("UserProfile").document(userId)
+                .get(com.google.firebase.firestore.Source.SERVER)
                 .addOnSuccessListener { document ->
                     if (document != null && document.exists()) {
-                        val vangFirebase = document.getLong("currentGold")?.toInt() ?: 0
-                        val ecFirebase = document.getLong("currentEC")?.toInt() ?: 0
-                        goldAmount.value = vangFirebase
-                        ECAmount.value = ecFirebase
+                        goldAmount.value = document.getLong("currentGold")?.toInt() ?: 0
+                        ECAmount.value = document.getLong("currentEC")?.toInt() ?: 0
+                        currentHouseImageUrl.value = document.getString("currentHouseImageUrl") ?: "" // ← thêm dòng này
                     }
                 }
         }
