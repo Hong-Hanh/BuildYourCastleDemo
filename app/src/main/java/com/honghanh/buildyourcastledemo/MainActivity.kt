@@ -19,10 +19,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.honghanh.buildyourcastledemo.features.focus.FocusScreen
 import com.honghanh.buildyourcastledemo.features.shop.ShopScreen
 import com.honghanh.buildyourcastledemo.features.admin.AdminScreen
 import com.honghanh.buildyourcastledemo.ui.theme.BuildYourCastleDemoTheme
+import com.honghanh.buildyourcastledemo.core.database.AppDatabase
+import com.honghanh.buildyourcastledemo.features.focus.FocusViewModel
+import com.honghanh.buildyourcastledemo.features.focus.FocusViewModelFactory
+import com.honghanh.buildyourcastledemo.features.focus.data.FocusLocalRepository
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,9 +38,20 @@ class MainActivity : ComponentActivity() {
             BuildYourCastleDemoTheme {
                 // Quản lý trạng thái màn hình hiện tại
                 var currentScreen by remember { mutableStateOf("focus") }
+                val database = AppDatabase.getDatabase(this)
 
+                val repository =
+                    FocusLocalRepository(
+                        database.focusSessionDao()
+                    )
+
+                val factory =
+                    FocusViewModelFactory(repository)
+                val focusViewModel: FocusViewModel =
+                    viewModel(factory = factory)
                 when (currentScreen) {
                     "focus" -> FocusScreen(
+                        viewModel = focusViewModel,
                         onNavigateToProfile = { currentScreen = "profile" },
                         onNavigateToHome = { currentScreen = "focus" },
                         onNavigateToShop = { currentScreen = "shop" },

@@ -15,7 +15,8 @@ import kotlinx.coroutines.launch
 import java.util.Date
 import java.util.UUID
 
-class FocusViewModel() : ViewModel() {
+
+class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel() {
 
     // Khởi tạo trực tiếp instance Firestore để giải quyết triệt để lỗi Unresolved reference
 // Trong FocusViewModel.kt, đổi dòng khai báo db thành:
@@ -176,6 +177,9 @@ class FocusViewModel() : ViewModel() {
             goldEarned = soVangThuong,
             ECEarned = 0
         )
+        viewModelScope.launch {
+            repository.luuPhienLocal(newSession)
+        }
 
         db.collection("focussession")
             .document(newSession.sessionId)
@@ -246,6 +250,9 @@ class FocusViewModel() : ViewModel() {
                     goldEarned = 0, // Bỏ cuộc thì không có quà
                     ECEarned = 0
                 )
+                viewModelScope.launch {
+                    repository.luuPhienLocal(cancelSession)
+                }
 
                 db.collection("focussession").document(cancelSession.sessionId).set(cancelSession)
             }

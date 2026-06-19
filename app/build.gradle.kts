@@ -1,6 +1,9 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+
+    id("com.google.devtools.ksp")
+
     id("com.google.gms.google-services")
 }
 
@@ -38,7 +41,10 @@ android {
     buildFeatures {
         compose = true
     }
+
+
 }
+
 
 dependencies {
     implementation(libs.androidx.core.ktx)
@@ -62,9 +68,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
     implementation("com.airbnb.android:lottie-compose:6.4.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
-    val roomVersion = "2.6.1" // Cập nhật phiên bản ổn định mới nhất năm 2026
+    val roomVersion = "2.8.4"
 
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion") // Hỗ trợ Coroutines và Flow
-    annotationProcessor("androidx.room:room-compiler:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
 }

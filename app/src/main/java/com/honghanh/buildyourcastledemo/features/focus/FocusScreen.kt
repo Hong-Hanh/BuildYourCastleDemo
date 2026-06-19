@@ -35,7 +35,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.*
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.honghanh.buildyourcastledemo.R
 import com.honghanh.buildyourcastledemo.core.model.FocusStatus
 import com.honghanh.buildyourcastledemo.ui.theme.BuildYourCastleDemoTheme
@@ -43,10 +42,9 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun FocusScreen(
-    viewModel: FocusViewModel = viewModel(),
+    viewModel: FocusViewModel,
     onNavigateToProfile: () -> Unit,
     onNavigateToHome: () -> Unit,
     onNavigateToShop: () -> Unit,
@@ -55,7 +53,6 @@ fun FocusScreen(
     onNavigateToStatistics: () -> Unit,
     onNavigateToAdmin: () -> Unit
 ) {
-    // ĐƯA ĐỊNH DANH USER LÊN ĐẦU ĐỂ KHÔNG BỊ BÁO ĐỎ UNRESOLVED REFERENCE
     val mockUserId = "eahgwrhj46et"
 
     val trangThai by viewModel.trangThaiHienTai
@@ -63,31 +60,82 @@ fun FocusScreen(
     val thoiGianNghiHienTai by viewModel.tgNghi
     val messageText by viewModel.thongBaoThuong
 
+    // Đồng bộ tiền tệ từ Firestore khi mở màn hình
+    LaunchedEffect(key1 = mockUserId) {
+        viewModel.taiThongTinViUser(mockUserId)
+    }
+
+    FocusContent(
+        trangThai = trangThai,
+        thoiGianTong = thoiGianTong,
+        thoiGianNghiHienTai = thoiGianNghiHienTai,
+        messageText = messageText,
+        goldAmount = viewModel.goldAmount.value,
+        ecAmount = viewModel.ECAmount.value,
+        cotMocNghi = viewModel.cotMocNghi,
+        dinhDangThoiGian = { miliseconds -> viewModel.dinhDangThoiGian(miliseconds) },
+        onXoaThongBao = { viewModel.xoaThongBao() },
+        onBoCuoc = { lyDo -> viewModel.boCuoc(lyDo) },
+        onXacNhanVaoPhienTiepTheo = { viewModel.xacNhanVaoPhienTiepTheo() },
+        onBoQuaNghi = { viewModel.boQuaNghi() },
+        onResetVeChuanBi = { viewModel.resetVeChuanBi() },
+        onBatDauTapTrung = { phut, mucTieu ->
+            viewModel.batDauTapTrung(tongTGPhut = phut, userId = mockUserId, mucTieuText = mucTieu)
+        },
+        onNavigateToProfile = onNavigateToProfile,
+        onNavigateToHome = onNavigateToHome,
+        onNavigateToShop = onNavigateToShop,
+        onNavigateToGacha = onNavigateToGacha,
+        onNavigateToStorage = onNavigateToStorage,
+        onNavigateToStatistics = onNavigateToStatistics,
+        onNavigateToAdmin = onNavigateToAdmin
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FocusContent(
+    trangThai: FocusStatus,
+    thoiGianTong: Long,
+    thoiGianNghiHienTai: Long,
+    messageText: String?,
+    goldAmount: Int,
+    ecAmount: Int,
+    cotMocNghi: Long,
+    dinhDangThoiGian: (Long) -> String,
+    onXoaThongBao: () -> Unit,
+    onBoCuoc: (String) -> Unit,
+    onXacNhanVaoPhienTiepTheo: () -> Unit,
+    onBoQuaNghi: () -> Unit,
+    onResetVeChuanBi: () -> Unit,
+    onBatDauTapTrung: (Int, String) -> Unit,
+    onNavigateToProfile: () -> Unit,
+    onNavigateToHome: () -> Unit,
+    onNavigateToShop: () -> Unit,
+    onNavigateToGacha: () -> Unit,
+    onNavigateToStorage: () -> Unit,
+    onNavigateToStatistics: () -> Unit,
+    onNavigateToAdmin: () -> Unit
+) {
     var showTimePickerSheet by remember { mutableStateOf(false) }
     var selectedTimeForStart by remember { mutableIntStateOf(25) }
     var targetText by remember { mutableStateOf("") }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val coroutineScope = rememberCoroutineScope()
+    val coroutineScope = rememberCoroutineScope() // Custom helper để nhận diện scope ổn định
+    val localCoroutineScope = rememberCoroutineScope()
     var tgXacNhan by remember { mutableStateOf(60) }
 
-    val thoiGianYeuCauNhanGiu = 3000L // 3 giây
+    val thoiGianYeuCauNhanGiu = 3000L
     var thoiGianDaNhanGiu by remember { mutableLongStateOf(0L) }
     var dangNhanGiuButton by remember { mutableStateOf(false) }
 
-    // Hiệu ứng mượt mà cho vòng tròn chạy theo tiến trình thời gian thực
     val tienTrinhVongTron by animateFloatAsState(
         targetValue = if (dangNhanGiuButton) (thoiGianDaNhanGiu.toFloat() / thoiGianYeuCauNhanGiu) else 0f,
         animationSpec = androidx.compose.animation.core.tween(durationMillis = 50, easing = androidx.compose.animation.core.LinearEasing),
         label = "Vòng tròn bỏ cuộc"
     )
 
-    // Đồng bộ tiền tệ từ Firestore khi mở màn hình
-    LaunchedEffect(key1 = mockUserId) {
-        viewModel.taiThongTinViUser(mockUserId)
-    }
-
-    // Luồng xử lý đếm mili-giây khi giữ nút bỏ cuộc
     LaunchedEffect(dangNhanGiuButton) {
         if (dangNhanGiuButton) {
             val thoiGianBatDau = System.currentTimeMillis()
@@ -98,17 +146,16 @@ fun FocusScreen(
                 if (thoiGianDaNhanGiu >= thoiGianYeuCauNhanGiu) {
                     dangNhanGiuButton = false
                     thoiGianDaNhanGiu = 0L
-                    viewModel.boCuoc() // Kích hoạt bỏ cuộc thành công!
+                    onBoCuoc("")
                     break
                 }
                 delay(50L)
             }
         } else {
-            thoiGianDaNhanGiu = 0L // Thả ngón tay ra giữa chừng -> reset lập tức
+            thoiGianDaNhanGiu = 0L
         }
     }
 
-    // Tự chạy đếm ngược khi hết giờ nghỉ
     LaunchedEffect(thoiGianNghiHienTai) {
         if (thoiGianNghiHienTai == 0L && trangThai == FocusStatus.NGHI_NGOI) {
             tgXacNhan = 60
@@ -116,16 +163,15 @@ fun FocusScreen(
                 delay(100L)
                 tgXacNhan--
             }
-            viewModel.xoaThongBao()
-            viewModel.boCuoc("Phiên tập trung không hoàn thành do hết thời gian xác nhận sau nghỉ.")
+            onXoaThongBao()
+            onBoCuoc("Phiên tập trung không hoàn thành do hết thời gian xác nhận sau nghỉ.")
         }
     }
 
-    // --- POPUP THÔNG BÁO TỰ ĐỘNG & POPUP ĐẾM NGƯỢC THỜI GIAN NGHỈ ---
     if (messageText != null) {
         AlertDialog(
             onDismissRequest = {
-                if (trangThai != FocusStatus.NGHI_NGOI) viewModel.xoaThongBao()
+                if (trangThai != FocusStatus.NGHI_NGOI) onXoaThongBao()
             },
             properties = DialogProperties(
                 dismissOnBackPress = trangThai != FocusStatus.NGHI_NGOI,
@@ -145,16 +191,12 @@ fun FocusScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = messageText!!,
-                        textAlign = TextAlign.Center,
-                        color = Color.DarkGray
-                    )
+                    Text(text = messageText, textAlign = TextAlign.Center, color = Color.DarkGray)
 
                     if (trangThai == FocusStatus.NGHI_NGOI) {
                         Spacer(modifier = Modifier.height(20.dp))
                         Text(
-                            text = viewModel.dinhDangThoiGian(thoiGianNghiHienTai),
+                            text = dinhDangThoiGian(thoiGianNghiHienTai),
                             fontSize = 54.sp,
                             fontWeight = FontWeight.Black,
                             color = Color(0xFF0E3C87),
@@ -164,21 +206,18 @@ fun FocusScreen(
                 }
             },
             confirmButton = {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Button(
                         onClick = {
                             if (trangThai == FocusStatus.NGHI_NGOI) {
-                                viewModel.xoaThongBao()
+                                onXoaThongBao()
                                 if (thoiGianNghiHienTai == 0L) {
-                                    viewModel.xacNhanVaoPhienTiepTheo()
+                                    onXacNhanVaoPhienTiepTheo()
                                 } else {
-                                    viewModel.boQuaNghi()
+                                    onBoQuaNghi()
                                 }
                             } else {
-                                viewModel.xoaThongBao()
+                                onXoaThongBao()
                                 if (trangThai == FocusStatus.HOAN_THANH) targetText = ""
                             }
                         },
@@ -187,8 +226,7 @@ fun FocusScreen(
                                 trangThai == FocusStatus.NGHI_NGOI && thoiGianNghiHienTai > 0L -> Color(0xFFF97316)
                                 trangThai == FocusStatus.NGHI_NGOI && thoiGianNghiHienTai == 0L -> Color(0xFF064E3B)
                                 else -> Color(0xFF064E3B)
-                            },
-                            contentColor = Color.White
+                            }
                         ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth().height(48.dp)
@@ -231,7 +269,7 @@ fun FocusScreen(
                     label = { Text("🏠 Home", fontWeight = FontWeight.Medium) },
                     selected = false,
                     onClick = {
-                        coroutineScope.launch { drawerState.close() }
+                        localCoroutineScope.launch { drawerState.close() }
                         onNavigateToHome()
                     },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
@@ -242,7 +280,7 @@ fun FocusScreen(
                     label = { Text("🛒 Cửa hàng", fontWeight = FontWeight.Medium) },
                     selected = false,
                     onClick = {
-                        coroutineScope.launch { drawerState.close() }
+                        localCoroutineScope.launch { drawerState.close() }
                         onNavigateToShop()
                     },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
@@ -253,7 +291,7 @@ fun FocusScreen(
                     label = { Text("🎲 Gacha", fontWeight = FontWeight.Medium) },
                     selected = false,
                     onClick = {
-                        coroutineScope.launch { drawerState.close() }
+                        localCoroutineScope.launch { drawerState.close() }
                         onNavigateToGacha()
                     },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
@@ -264,7 +302,7 @@ fun FocusScreen(
                     label = { Text("📦 Kho vật phẩm", fontWeight = FontWeight.Medium) },
                     selected = false,
                     onClick = {
-                        coroutineScope.launch { drawerState.close() }
+                        localCoroutineScope.launch { drawerState.close() }
                         onNavigateToStorage()
                     },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
@@ -275,7 +313,7 @@ fun FocusScreen(
                     label = { Text("📊 Thống kê hiệu suất", fontWeight = FontWeight.Medium) },
                     selected = false,
                     onClick = {
-                        coroutineScope.launch { drawerState.close() }
+                        localCoroutineScope.launch { drawerState.close() }
                         onNavigateToStatistics()
                     },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
@@ -288,7 +326,7 @@ fun FocusScreen(
                     label = { Text("🛠️ Quản trị viên (Thêm nhà)", fontWeight = FontWeight.Bold, color = Color(0xFF78350F)) },
                     selected = false,
                     onClick = {
-                        coroutineScope.launch { drawerState.close() }
+                        localCoroutineScope.launch { drawerState.close() }
                         onNavigateToAdmin()
                     },
                     modifier = Modifier
@@ -342,17 +380,17 @@ fun FocusScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("🟡", fontSize = 12.sp)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = viewModel.goldAmount.value.toString(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(text = goldAmount.toString(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                         Box(modifier = Modifier.width(1.dp).height(16.dp).background(Color(0xFFEEEEEE)))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("🌙", fontSize = 12.sp)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = viewModel.ECAmount.value.toString(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(text = ecAmount.toString(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
-                    IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
+                    IconButton(onClick = { localCoroutineScope.launch { drawerState.open() } }) {
                         Icon(imageVector = Icons.Default.Menu, contentDescription = "Mở Menu", tint = Color.Gray)
                     }
                 }
@@ -377,16 +415,14 @@ fun FocusScreen(
 
                 Spacer(modifier = Modifier.height(2.dp))
 
-                // --- 3. BẢNG ĐIỀU KHIỂN RIÊNG BIỆT (CONTROL PANEL BOX) ---
+                // --- 3. BẢNG ĐIỀU KHIỂN RIÊNG BIỆT ---
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
                         .padding(bottom = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // [THÀNH PHẦN 1]: NÚT CHUYỂN MẪU
                     Button(
                         onClick = onNavigateToStorage,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFA7F3D0)),
@@ -406,13 +442,12 @@ fun FocusScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // [THÀNH PHẦN 2]: ĐỒNG HỒ THỜI GIAN
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = when (trangThai) {
                                 FocusStatus.CHUAN_BI -> "00:00"
-                                FocusStatus.NGHI_NGOI -> viewModel.dinhDangThoiGian(viewModel.cotMocNghi)
-                                else -> viewModel.dinhDangThoiGian(thoiGianTong)
+                                FocusStatus.NGHI_NGOI -> dinhDangThoiGian(cotMocNghi)
+                                else -> dinhDangThoiGian(thoiGianTong)
                             },
                             fontSize = 58.sp,
                             fontWeight = FontWeight.Bold,
@@ -423,7 +458,6 @@ fun FocusScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // [THÀNH PHẦN 3]: NÚT BẤM CHÍNH TÂM (Đã sửa triệt để cử chỉ và vòng tròn)
                     val buttonColor = when (trangThai) {
                         FocusStatus.CHUAN_BI -> Color(0xFF064E3B)
                         FocusStatus.DANG_CHAY -> Color(0xFFBA1A1A)
@@ -457,15 +491,14 @@ fun FocusScreen(
                                 .clip(CircleShape)
                                 .background(buttonColor)
                                 .pointerInput(trangThai) {
-                                    // SỬ DỤNG detectTapGestures ĐỂ TÁCH BIỆT CLICK VÀ NHẤN GIỮ CHÍNH XÁC 100%
                                     detectTapGestures(
                                         onTap = {
                                             when (trangThai) {
                                                 FocusStatus.CHUAN_BI -> showTimePickerSheet = true
-                                                FocusStatus.DANG_CHAY -> { /* Đang chạy thì bắt buộc phải giữ, bấm click nhẹ không nhận */ }
-                                                FocusStatus.NGHI_NGOI -> { /* Khóa click khi nghỉ */ }
+                                                FocusStatus.DANG_CHAY -> {}
+                                                FocusStatus.NGHI_NGOI -> {}
                                                 else -> {
-                                                    viewModel.resetVeChuanBi()
+                                                    onResetVeChuanBi()
                                                     targetText = ""
                                                 }
                                             }
@@ -474,9 +507,9 @@ fun FocusScreen(
                                             if (trangThai == FocusStatus.DANG_CHAY) {
                                                 try {
                                                     dangNhanGiuButton = true
-                                                    awaitRelease() // Chờ cho đến khi người dùng nhấc ngón tay ra
+                                                    awaitRelease()
                                                 } finally {
-                                                    dangNhanGiuButton = false // Đảm bảo luôn reset khi thả tay/hủy cử chỉ
+                                                    dangNhanGiuButton = false
                                                 }
                                             }
                                         }
@@ -484,12 +517,7 @@ fun FocusScreen(
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = buttonIcon,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(38.dp)
-                            )
+                            Icon(imageVector = buttonIcon, contentDescription = null, tint = Color.White, modifier = Modifier.size(38.dp))
                         }
                     }
                 }
@@ -527,12 +555,7 @@ fun FocusScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(width = 36.dp, height = 4.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.LightGray.copy(alpha = 0.6f))
-                            )
+                            Box(modifier = Modifier.size(width = 36.dp, height = 4.dp).clip(CircleShape).background(Color.LightGray.copy(alpha = 0.6f)))
 
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(text = "Thiết lập phiên tập trung", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF064E3B))
@@ -545,10 +568,7 @@ fun FocusScreen(
                                 placeholder = { Text("Ví dụ: Học code, Đọc sách...") },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color(0xFF064E3B),
-                                    focusedLabelColor = Color(0xFF064E3B)
-                                ),
+                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF064E3B), focusedLabelColor = Color(0xFF064E3B)),
                                 singleLine = true
                             )
 
@@ -557,22 +577,14 @@ fun FocusScreen(
                             Spacer(modifier = Modifier.height(12.dp))
 
                             val times = listOf(5, 15, 25, 35, 45, 50, 60, 90, 120)
-                            TimeHorizontalPicker(
-                                times = times,
-                                initialIndex = 2,
-                                onTimeSelected = { selectedTimeForStart = it }
-                            )
+                            TimeHorizontalPicker(times = times, initialIndex = 2, onTimeSelected = { selectedTimeForStart = it })
 
                             Spacer(modifier = Modifier.height(28.dp))
 
                             Button(
                                 onClick = {
                                     showTimePickerSheet = false
-                                    viewModel.batDauTapTrung(
-                                        tongTGPhut = selectedTimeForStart,
-                                        userId = mockUserId,
-                                        mucTieuText = targetText
-                                    )
+                                    onBatDauTapTrung(selectedTimeForStart, targetText)
                                 },
                                 modifier = Modifier.fillMaxWidth().height(52.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF064E3B)),
@@ -611,9 +623,7 @@ fun TimeHorizontalPicker(
         }
     }
 
-    LaunchedEffect(Unit) {
-        listState.scrollToItem(initialIndex)
-    }
+    LaunchedEffect(Unit) { listState.scrollToItem(initialIndex) }
 
     LaunchedEffect(centeredIndex) {
         if (centeredIndex < times.size) {
@@ -657,11 +667,26 @@ fun TimeHorizontalPicker(
     }
 }
 
+// 🔥 ĐÃ SỬA: Hàm Preview chạy mượt mà ngay lập tức bằng dữ liệu Mock, không bị dính logic ViewModel
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun FocusScreenPreview() {
     BuildYourCastleDemoTheme {
-        FocusScreen(
+        FocusContent(
+            trangThai = FocusStatus.CHUAN_BI,
+            thoiGianTong = 1500000L, // 25 phút giả lập dạng miliseconds
+            thoiGianNghiHienTai = 300000L,
+            messageText = null,
+            goldAmount = 1250,
+            ecAmount = 45,
+            cotMocNghi = 300000L,
+            dinhDangThoiGian = { "25:00" },
+            onXoaThongBao = {},
+            onBoCuoc = {},
+            onXacNhanVaoPhienTiepTheo = {},
+            onBoQuaNghi = {},
+            onResetVeChuanBi = {},
+            onBatDauTapTrung = { _, _ -> },
             onNavigateToProfile = {},
             onNavigateToHome = {},
             onNavigateToShop = {},

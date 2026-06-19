@@ -6,6 +6,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentReference
 
 @Entity(tableName = "focus_sessions") // 👈 Thêm dòng này để Room nhận biết bảng
+
 data class FocusSession(
     @PrimaryKey // 👈 Thêm dòng này để làm khóa chính cho Room
     val sessionId: String = "",
