@@ -31,6 +31,7 @@ import com.honghanh.buildyourcastledemo.features.focus.FocusViewModelFactory
 import com.honghanh.buildyourcastledemo.features.focus.data.FocusLocalRepository
 import com.honghanh.buildyourcastledemo.features.auth.LoginScreen
 import com.honghanh.buildyourcastledemo.features.auth.SignUpScreen
+import com.honghanh.buildyourcastledemo.features.profile.ProfileScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -82,11 +83,15 @@ class MainActivity : ComponentActivity() {
                     "admin" -> AdminScreen(onBack = { currentScreen = "focus" })
 
                     // --- CÁC MÀN HÌNH ĐANG DÙNG TẠM PLACEHOLDER ---
-                    "profile" -> {
-                        // Bạn có thể thêm nút Đăng xuất ở màn hình Profile sau này bằng cách gọi:
-                        // FirebaseAuth.getInstance().signOut() và đặt currentScreen = "login"
-                        PlaceholderScreen(title = "Màn hình Profile") { currentScreen = "focus" }
-                    }
+                    // Trong MainActivity.kt -> tìm đoạn "profile" cũ:
+                    "profile" ->
+                      ProfileScreen(onBack = { currentScreen = "focus" },
+                            onLogoutSuccess = {
+                                // Khi đăng xuất thành công, xóa ngăn xếp và đẩy người dùng ra lại màn hình Login
+                                currentScreen = "login"
+                            }
+                        )
+
 
                     "gacha" -> {
                         PlaceholderScreen(title = "Màn hình Vòng quay Gacha") { currentScreen = "focus" }

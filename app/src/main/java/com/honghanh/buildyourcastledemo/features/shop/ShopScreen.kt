@@ -367,7 +367,7 @@ fun ShopItemGridCard(
         } else {
             val (priceText, currencySymbol) = when {
                 house.priceEC > 0 -> Pair(house.priceEC.toString(), "EC")
-                else -> Pair(house.priceGold.toString(), "🟡")
+                else -> Pair(house.priceGold.toString(), "🪙")
             }
             Text(text = "$priceText $currencySymbol", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1F2937))
         }
@@ -483,7 +483,7 @@ fun DetailProductDialog(
                     } else {
                         val (priceText, currencySymbol) = when {
                             house.priceEC > 0 -> Pair(house.priceEC.toString(), "EC")
-                            else -> Pair(house.priceGold.toString(), "🟡")
+                            else -> Pair(house.priceGold.toString(), "🪙")
                         }
                         Button(
                             onClick = onBuyClick,

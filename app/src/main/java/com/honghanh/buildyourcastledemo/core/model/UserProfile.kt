@@ -6,5 +6,6 @@ data class UserProfile(
     val currentEC: Int = 0,
     val idHouse: String = "",
     val currentHouseImageUrl: String = "",  // ← thêm
-    val ownedHouses: List<String> = emptyList()  // ← thêm luôn cho đồng bộ
+    val ownedHouses: List<String> = emptyList(),  // ← thêm luôn cho đồng bộ
+    val currentAvatarUrl: String = ""
 )

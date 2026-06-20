@@ -1,5 +1,6 @@
 package com.honghanh.buildyourcastledemo.features.focus
 
+import android.os.CountDownTimer
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -40,8 +41,10 @@ import com.honghanh.buildyourcastledemo.core.model.FocusStatus
 import com.honghanh.buildyourcastledemo.ui.theme.BuildYourCastleDemoTheme
 import kotlinx.coroutines.launch
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
+import com.honghanh.buildyourcastledemo.features.profile.getAvatarResource
 import kotlinx.coroutines.delay
 
 @Composable
@@ -55,7 +58,7 @@ fun FocusScreen(
     onNavigateToStatistics: () -> Unit,
     onNavigateToAdmin: () -> Unit
 ) {
-    // 🔥 ĐÃ SỬA: Lấy UserId thực tế từ Firebase Auth, dự phòng chuỗi rỗng nếu chưa login
+    // Lấy UserId thực tế từ Firebase Auth, dự phòng chuỗi rỗng nếu chưa login
     val currentUserId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: "" }
 
     val trangThai by viewModel.trangThaiHienTai
@@ -63,7 +66,10 @@ fun FocusScreen(
     val thoiGianNghiHienTai by viewModel.tgNghi
     val messageText by viewModel.thongBaoThuong
 
-    // ĐỔI SỬA: Lắng nghe và tự động kéo ví về nếu ID hợp lệ
+    // 🔥 ĐÃ SỬA: Lắng nghe chính xác trường dữ liệu UserProfile từ ViewModel để cập nhật Avatar thời gian thực
+    val userProfileState by viewModel.userProfile
+
+    // Lắng nghe và tự động kéo ví về nếu ID hợp lệ
     LaunchedEffect(key1 = currentUserId) {
         if (currentUserId.isNotEmpty()) {
             viewModel.taiThongTinViUser(currentUserId)
@@ -78,6 +84,8 @@ fun FocusScreen(
         goldAmount = viewModel.goldAmount.value,
         ecAmount = viewModel.ECAmount.value,
         cotMocNghi = viewModel.cotMocNghi,
+        // 🔥 ĐÃ SỬA: Truyền an toàn thuộc tính tên Avatar xuống tầng hiển thị, mặc định là hopsua nếu null
+        currentAvatarName = userProfileState?.currentAvatarUrl ?: "avatar_hopsua",
         currentHouseImageUrl = viewModel.currentHouseImageUrl.value,
         dinhDangThoiGian = { miliseconds -> viewModel.dinhDangThoiGian(miliseconds) },
         onXoaThongBao = { viewModel.xoaThongBao() },
@@ -86,7 +94,6 @@ fun FocusScreen(
         onBoQuaNghi = { viewModel.boQuaNghi() },
         onResetVeChuanBi = { viewModel.resetVeChuanBi() },
         onBatDauTapTrung = { phut, mucTieu ->
-            // ĐÃ SỬA: Truyền đúng currentUserId thực tế vào hàm bắt đầu của ViewModel
             viewModel.batDauTapTrung(tongTGPhut = phut, userId = currentUserId, mucTieuText = mucTieu)
         },
         onNavigateToProfile = onNavigateToProfile,
@@ -99,7 +106,7 @@ fun FocusScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun FocusContent(
     trangThai: FocusStatus,
@@ -109,6 +116,7 @@ fun FocusContent(
     goldAmount: Int,
     ecAmount: Int,
     cotMocNghi: Long,
+    currentAvatarName: String, // Chuỗi định danh Avatar an toàn nhận từ FocusScreen
     currentHouseImageUrl: String,
     dinhDangThoiGian: (Long) -> String,
     onXoaThongBao: () -> Unit,
@@ -339,7 +347,7 @@ fun FocusContent(
                     modifier = Modifier
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                         .border(1.dp, Color(0xFFFEF3C7), RoundedCornerShape(12.dp)),
-                    colors = NavigationDrawerItemDefaults.colors(unselectedContainerColor = Color(0xFFFFFBEB))
+                    colors = NavigationDrawerItemDefaults.colors(unselectedContainerColor = Color.Transparent)
                 )
             }
         }
@@ -363,15 +371,17 @@ fun FocusContent(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(70.dp)
                             .clip(CircleShape)
-                            .background(Color.LightGray)
-                            .clickable { onNavigateToProfile() }
+                            .border(3.dp, Color(0xFFA3E635), CircleShape)
+                            .clickable { onNavigateToProfile() },
+                        contentAlignment = Alignment.Center
                     ) {
+                        // 🔥 ĐÃ SỬA: Đọc biến an toàn từ tham số currentAvatarName thay vì gọi sống LiveData.value
                         Image(
-                            painter = painterResource(id = R.drawable.ic_launcher_background),
-                            contentDescription = "Profile",
-                            modifier = Modifier.fillMaxSize(),
+                            painter = painterResource(id = getAvatarResource(currentAvatarName)),
+                            contentDescription = "Focus Top Avatar",
+                            modifier = Modifier.fillMaxSize().clip(CircleShape),
                             contentScale = ContentScale.Crop
                         )
                     }
@@ -385,7 +395,7 @@ fun FocusContent(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("🟡", fontSize = 12.sp)
+                            Text("🪙", fontSize = 12.sp)
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(text = goldAmount.toString(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
@@ -424,7 +434,7 @@ fun FocusContent(
 
                 Spacer(modifier = Modifier.height(2.dp))
 
-                // --- 3. BẢNG ĐIỀU KHIỂN RIÊNG BIỆT ---
+                // --- 3. BẢNG ĐIỀU KHIỂN ---
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -669,40 +679,14 @@ fun TimeHorizontalPicker(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "$time", fontSize = 18.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, color = color)
+                    Text(
+                        text = "$time",
+                        fontSize = 18.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = color
+                    )
                 }
             }
         }
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun FocusScreenPreview() {
-    BuildYourCastleDemoTheme {
-        FocusContent(
-            trangThai = FocusStatus.CHUAN_BI,
-            thoiGianTong = 1500000L,
-            thoiGianNghiHienTai = 300000L,
-            messageText = null,
-            goldAmount = 1250,
-            ecAmount = 45,
-            cotMocNghi = 300000L,
-            currentHouseImageUrl = "",
-            dinhDangThoiGian = { "25:00" },
-            onXoaThongBao = {},
-            onBoCuoc = {},
-            onXacNhanVaoPhienTiepTheo = {},
-            onBoQuaNghi = {},
-            onResetVeChuanBi = {},
-            onBatDauTapTrung = { _, _ -> },
-            onNavigateToProfile = {},
-            onNavigateToHome = {},
-            onNavigateToShop = {},
-            onNavigateToGacha = {},
-            onNavigateToStorage = {},
-            onNavigateToStatistics = {},
-            onNavigateToAdmin = {}
-        )
     }
 }

@@ -1,48 +1,44 @@
 package com.honghanh.buildyourcastledemo.features.focus
 
 import android.os.CountDownTimer
+import android.util.Log
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.SetOptions
 import com.honghanh.buildyourcastledemo.core.model.FocusSession
 import com.honghanh.buildyourcastledemo.core.model.FocusStatus
+import com.honghanh.buildyourcastledemo.core.model.UserProfile
 import com.honghanh.buildyourcastledemo.features.focus.data.FocusLocalRepository
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.Date
 import java.util.UUID
 
+class FocusViewModel(private val repository: FocusLocalRepository) : ViewModel() {
 
-class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel() {
-
-    // Khởi tạo trực tiếp instance Firestore để giải quyết triệt để lỗi Unresolved reference
-// Trong FocusViewModel.kt, đổi dòng khai báo db thành:
     private val db = com.honghanh.buildyourcastledemo.core.database.FirebaseProvider.firestore
 
     private val tgTapTrungMotPhien = 25 * 100L
     private val thoiGianNghi = 5 * 100L
 
-    var goldAmount = androidx.compose.runtime.mutableIntStateOf(0)
+    var goldAmount = mutableIntStateOf(0)
         private set
-    var ECAmount = androidx.compose.runtime.mutableIntStateOf(0)
+    var ECAmount = mutableIntStateOf(0)
         private set
-    var isLoadingWallet = androidx.compose.runtime.mutableStateOf(true)
+    var isLoadingWallet = mutableStateOf(true)
         private set
-
 
     var tongTGDaChon = mutableLongStateOf(0L)
         private set
 
     private var soPhutMucTieuBanDau = 0
-
-    // THÊM MỚI: Biến lưu trữ ID người dùng hiện tại (sẽ được truyền từ UI vào lúc bắt đầu)
     private var currentUserId: String = ""
-
-    // THÊM MỚI: Chuỗi mục tiêu do người dùng nhập từ TextField ở UI
     private var currentTargetText: String = ""
 
     var tgNghi = mutableLongStateOf(0L)
@@ -57,10 +53,18 @@ class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel(
     var thongBaoThuong = mutableStateOf<String?>(null)
 
     private var boDemGio: CountDownTimer? = null
+
+    // Biến lưu trữ URL ảnh ngôi nhà hiển thị ở giữa màn hình Focus (Dùng AsyncImage)
     var currentHouseImageUrl = mutableStateOf("")
         private set
 
-    // TÍCH HỢP AUTH: Tự động kiểm tra session đăng nhập khi khởi tạo ViewModel
+    // 🔥 THÊM MỚI: Biến quan sát toàn bộ Object UserProfile để lấy trường avatar cục bộ theo thời gian thực
+    var userProfile = mutableStateOf<UserProfile?>(null)
+        private set
+
+    // Biến quản lý listener của Firestore để hủy lắng nghe khi hủy ViewModel
+    private var userProfileListener: ListenerRegistration? = null
+
     init {
         val firebaseUser = FirebaseAuth.getInstance().currentUser
         if (firebaseUser != null) {
@@ -68,8 +72,46 @@ class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel(
         }
     }
 
+    // 🔥 ĐÃ SỬA: Đồng bộ hóa chuẩn xác dữ liệu real-time từ Firestore đổ về
+    fun taiThongTinViUser(userId: String) {
+        if (userId.isEmpty()) return
+        this.currentUserId = userId
 
-    // ĐÃ SỬA: Nhận thêm userId và mục tiêuText động từ UI ném xuống khi bấm bắt đầu
+        // Hủy listener cũ nếu có trước khi đăng ký listener mới để tránh rò rỉ bộ nhớ
+        userProfileListener?.remove()
+
+        isLoadingWallet.value = true
+
+        // Đăng ký lắng nghe sự thay đổi tài liệu UserProfile theo thời gian thực từ Firestore
+        userProfileListener = db.collection("UserProfile").document(userId)
+            .addSnapshotListener { snapshot, error ->
+                isLoadingWallet.value = false
+                if (error != null) {
+                    Log.e("FocusViewModel", "Lỗi lắng nghe dữ liệu ví: ${error.message}")
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null && snapshot.exists()) {
+                    val profile = snapshot.toObject(UserProfile::class.java)
+                    userProfile.value = profile
+
+                    goldAmount.value = snapshot.getLong("currentGold")?.toInt() ?: 0
+                    ECAmount.value = snapshot.getLong("currentEC")?.toInt() ?: 0
+
+                    // 🔥 ĐÃ SỬA: Kiểm tra nếu trường URL bị trống, lấy URL từ object profile hoặc gán một link ảnh nhà mặc định cố định từ Firebase Storage của bạn
+                    val dbHouseUrl = snapshot.getString("currentHouseImageUrl")
+                    if (!dbHouseUrl.isNullOrEmpty()) {
+                        currentHouseImageUrl.value = dbHouseUrl
+                    } else if (!profile?.currentHouseImageUrl.isNullOrEmpty()) {
+                        currentHouseImageUrl.value = profile!!.currentHouseImageUrl
+                    } else {
+                        // Link ảnh nhà cấp 1 mặc định trên Firebase Storage của bạn phòng trường hợp tài khoản mới tinh chưa có nhà
+                        currentHouseImageUrl.value = "https://firebasestorage.googleapis.com/.../house_default.png"
+                    }
+                }
+            }
+    }
+
     fun batDauTapTrung(tongTGPhut: Int, userId: String, mucTieuText: String) {
         if (trangThaiHienTai.value != FocusStatus.CHUAN_BI) return
 
@@ -81,32 +123,6 @@ class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel(
 
         tinhMocNghi()
         kichHoatTapTrung()
-    }
-    fun taiThongTinViUser(userId: String) {
-        if (userId.isEmpty()) return
-        this.currentUserId = userId
-
-        viewModelScope.launch(Dispatchers.IO) {
-            db.collection("UserProfile").document(userId)
-                .get(com.google.firebase.firestore.Source.CACHE)
-                .addOnSuccessListener { document ->
-                    if (document != null && document.exists()) {
-                        goldAmount.value = document.getLong("currentGold")?.toInt() ?: 0
-                        ECAmount.value = document.getLong("currentEC")?.toInt() ?: 0
-                        currentHouseImageUrl.value = document.getString("currentHouseImageUrl") ?: "" // ← đọc thẳng từ document
-                    }
-                }
-
-            db.collection("UserProfile").document(userId)
-                .get(com.google.firebase.firestore.Source.SERVER)
-                .addOnSuccessListener { document ->
-                    if (document != null && document.exists()) {
-                        goldAmount.value = document.getLong("currentGold")?.toInt() ?: 0
-                        ECAmount.value = document.getLong("currentEC")?.toInt() ?: 0
-                        currentHouseImageUrl.value = document.getString("currentHouseImageUrl") ?: "" // ← thêm dòng này
-                    }
-                }
-        }
     }
 
     private fun tinhMocNghi() {
@@ -136,37 +152,31 @@ class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel(
         }.start()
     }
 
-    // ĐÃ SỬA: Hàm tự động đóng gói dữ liệu và đẩy lên Firestore dạng "Reference" khi HOÀN THÀNH
-    // ĐÃ SỬA: Thực hiện cộng dồn tiền trực tiếp lên Firestore document của User
     fun thuongVang() {
         val soVangThuong = soPhutMucTieuBanDau * 12
 
-        // 1. Cập nhật RAM để UI nhảy số luôn
         goldAmount.value = goldAmount.value + soVangThuong
         thongBaoThuong.value = "Chúc mừng! Bạn đã hoàn thành xuất sắc $soPhutMucTieuBanDau phút tập trung và nhận được $soVangThuong xu vàng để xây dựng lâu đài!"
 
         if (currentUserId.isEmpty()) {
-            currentUserId =  FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
         }
 
-        // 2. Tạo liên kết con trỏ Reference đến hồ sơ người dùng
         val userConnectRef = db.collection("UserProfile").document(currentUserId)
 
-        // 🔥 SỬA ĐOẠN NÀY: Dùng .set + FieldValue.increment để bao thầu cả tạo mới lẫn cập nhật
         val updateData = mapOf(
-            "currentGold" to com.google.firebase.firestore.FieldValue.increment(soVangThuong.toLong()),
-            "currentEC" to com.google.firebase.firestore.FieldValue.increment(0L) // Giữ nguyên EC hoặc tăng nếu muốn
+            "currentGold" to FieldValue.increment(soVangThuong.toLong()),
+            "currentEC" to FieldValue.increment(0L)
         )
 
-        userConnectRef.set(updateData, com.google.firebase.firestore.SetOptions.merge())
+        userConnectRef.set(updateData, SetOptions.merge())
             .addOnSuccessListener {
-                android.util.Log.d("Firebase_Success", "Đã cập nhật/Tạo mới thành công userprofile!")
+                Log.d("Firebase_Success", "Đã cập nhật/Tạo mới thành công userprofile!")
             }
             .addOnFailureListener { e ->
-                android.util.Log.e("Firebase_Error", "Lỗi cập nhật userprofile: ${e.message}")
+                Log.e("Firebase_Error", "Lỗi cập nhật userprofile: ${e.message}")
             }
 
-        // 3. Đóng gói Model lịch sử và đẩy vào "focussession" (Giữ nguyên đoạn này của bạn)
         val currentTimestamp = Timestamp(Date())
         val startTimestamp = Timestamp(Date(System.currentTimeMillis() - (soPhutMucTieuBanDau * 60000L)))
 
@@ -227,7 +237,6 @@ class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel(
         }
     }
 
-    // ĐÃ SỬA: Đẩy luôn lịch sử hủy phiên lên Firebase để sau này hiển thị lên Trang cá nhân dạng "Bỏ cuộc"
     fun boCuoc(thongBao: String = "Bạn đã hủy phiên tập trung!") {
         if (trangThaiHienTai.value == FocusStatus.DANG_CHAY ||
             trangThaiHienTai.value == FocusStatus.NGHI_NGOI
@@ -239,7 +248,6 @@ class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel(
             if (currentUserId.isNotEmpty()) {
                 val userConnectRef = db.collection("UserProfile").document(currentUserId)
 
-                // Tính số phút thực tế cày được trước khi bấm nút Hủy
                 val soGiayDaChay = (soPhutMucTieuBanDau * 100L - tongTGDaChon.longValue) / 100
                 val soPhutThucTe = (soGiayDaChay / 60).toInt()
 
@@ -249,10 +257,10 @@ class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel(
                     startTime = Timestamp(Date(System.currentTimeMillis() - (soPhutThucTe * 60000L))),
                     endTime = Timestamp(Date()),
                     targetDuration = soPhutMucTieuBanDau,
-                    actualDuration = soPhutThucTe, // Chỉ ghi nhận số phút thực tế làm được
-                    status = "BO_CUOC", // Đánh dấu trạng thái tạch
+                    actualDuration = soPhutThucTe,
+                    status = "BO_CUOC",
                     targetText = currentTargetText,
-                    goldEarned = 0, // Bỏ cuộc thì không có quà
+                    goldEarned = 0,
                     ECEarned = 0
                 )
                 viewModelScope.launch {
@@ -285,5 +293,7 @@ class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel(
     override fun onCleared() {
         super.onCleared()
         boDemGio?.cancel()
+        // Gỡ bỏ lắng nghe hoàn toàn khi hủy ViewModel để giải phóng tài nguyên hệ thống
+        userProfileListener?.remove()
     }
 }
