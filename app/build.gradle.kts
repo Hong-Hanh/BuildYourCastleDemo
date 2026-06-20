@@ -69,8 +69,12 @@ dependencies {
     implementation("com.airbnb.android:lottie-compose:6.4.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
     val roomVersion = "2.8.4"
+        // Thư viện chứa các icon mở rộng bao gồm cả logo các nền tảng phổ biến
+    implementation("androidx.compose.material:material-icons-extended")
 
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion") // Hỗ trợ Coroutines và Flow
     ksp("androidx.room:room-compiler:$roomVersion")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.android.gms:play-services-auth:21.0.0") // cho Google Sign-In
 }

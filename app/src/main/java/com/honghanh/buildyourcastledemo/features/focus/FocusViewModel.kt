@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.honghanh.buildyourcastledemo.core.model.FocusSession
 import com.honghanh.buildyourcastledemo.core.model.FocusStatus
@@ -23,7 +24,7 @@ class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel(
     private val db = com.honghanh.buildyourcastledemo.core.database.FirebaseProvider.firestore
 
     private val tgTapTrungMotPhien = 25 * 100L
-    private val thoiGianNghi = 5 * 1000L
+    private val thoiGianNghi = 5 * 100L
 
     var goldAmount = androidx.compose.runtime.mutableIntStateOf(0)
         private set
@@ -58,6 +59,14 @@ class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel(
     private var boDemGio: CountDownTimer? = null
     var currentHouseImageUrl = mutableStateOf("")
         private set
+
+    // TÍCH HỢP AUTH: Tự động kiểm tra session đăng nhập khi khởi tạo ViewModel
+    init {
+        val firebaseUser = FirebaseAuth.getInstance().currentUser
+        if (firebaseUser != null) {
+            taiThongTinViUser(firebaseUser.uid)
+        }
+    }
 
 
     // ĐÃ SỬA: Nhận thêm userId và mục tiêuText động từ UI ném xuống khi bấm bắt đầu
@@ -137,7 +146,7 @@ class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel(
         thongBaoThuong.value = "Chúc mừng! Bạn đã hoàn thành xuất sắc $soPhutMucTieuBanDau phút tập trung và nhận được $soVangThuong xu vàng để xây dựng lâu đài!"
 
         if (currentUserId.isEmpty()) {
-            currentUserId = "eahgwrhj46et" // ID test phòng hờ
+            currentUserId =  FirebaseAuth.getInstance().currentUser?.uid ?: ""
         }
 
         // 2. Tạo liên kết con trỏ Reference đến hồ sơ người dùng
@@ -228,7 +237,7 @@ class FocusViewModel( private val repository: FocusLocalRepository) : ViewModel(
             thongBaoThuong.value = thongBao
 
             if (currentUserId.isNotEmpty()) {
-                val userConnectRef = db.collection("userprofile").document(currentUserId)
+                val userConnectRef = db.collection("UserProfile").document(currentUserId)
 
                 // Tính số phút thực tế cày được trước khi bấm nút Hủy
                 val soGiayDaChay = (soPhutMucTieuBanDau * 100L - tongTGDaChon.longValue) / 100

@@ -41,6 +41,7 @@ import com.honghanh.buildyourcastledemo.ui.theme.BuildYourCastleDemoTheme
 import kotlinx.coroutines.launch
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 
 @Composable
@@ -54,16 +55,19 @@ fun FocusScreen(
     onNavigateToStatistics: () -> Unit,
     onNavigateToAdmin: () -> Unit
 ) {
-    val mockUserId = "eahgwrhj46et"
+    // 🔥 ĐÃ SỬA: Lấy UserId thực tế từ Firebase Auth, dự phòng chuỗi rỗng nếu chưa login
+    val currentUserId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: "" }
 
     val trangThai by viewModel.trangThaiHienTai
     val thoiGianTong by viewModel.tongTGDaChon
     val thoiGianNghiHienTai by viewModel.tgNghi
     val messageText by viewModel.thongBaoThuong
 
-    // Đồng bộ tiền tệ từ Firestore khi mở màn hình
-    LaunchedEffect(key1 = mockUserId) {
-        viewModel.taiThongTinViUser(mockUserId)
+    // ĐỔI SỬA: Lắng nghe và tự động kéo ví về nếu ID hợp lệ
+    LaunchedEffect(key1 = currentUserId) {
+        if (currentUserId.isNotEmpty()) {
+            viewModel.taiThongTinViUser(currentUserId)
+        }
     }
 
     FocusContent(
@@ -82,7 +86,8 @@ fun FocusScreen(
         onBoQuaNghi = { viewModel.boQuaNghi() },
         onResetVeChuanBi = { viewModel.resetVeChuanBi() },
         onBatDauTapTrung = { phut, mucTieu ->
-            viewModel.batDauTapTrung(tongTGPhut = phut, userId = mockUserId, mucTieuText = mucTieu)
+            // ĐÃ SỬA: Truyền đúng currentUserId thực tế vào hàm bắt đầu của ViewModel
+            viewModel.batDauTapTrung(tongTGPhut = phut, userId = currentUserId, mucTieuText = mucTieu)
         },
         onNavigateToProfile = onNavigateToProfile,
         onNavigateToHome = onNavigateToHome,
@@ -119,14 +124,12 @@ fun FocusContent(
     onNavigateToStorage: () -> Unit,
     onNavigateToStatistics: () -> Unit,
     onNavigateToAdmin: () -> Unit
-
 ) {
     var showTimePickerSheet by remember { mutableStateOf(false) }
     var selectedTimeForStart by remember { mutableIntStateOf(25) }
     var targetText by remember { mutableStateOf("") }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val coroutineScope = rememberCoroutineScope() // Custom helper để nhận diện scope ổn định
     val localCoroutineScope = rememberCoroutineScope()
     var tgXacNhan by remember { mutableStateOf(60) }
 
@@ -673,14 +676,13 @@ fun TimeHorizontalPicker(
     }
 }
 
-// 🔥 ĐÃ SỬA: Hàm Preview chạy mượt mà ngay lập tức bằng dữ liệu Mock, không bị dính logic ViewModel
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun FocusScreenPreview() {
     BuildYourCastleDemoTheme {
         FocusContent(
             trangThai = FocusStatus.CHUAN_BI,
-            thoiGianTong = 1500000L, // 25 phút giả lập dạng miliseconds
+            thoiGianTong = 1500000L,
             thoiGianNghiHienTai = 300000L,
             messageText = null,
             goldAmount = 1250,

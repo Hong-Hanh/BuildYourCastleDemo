@@ -3,6 +3,7 @@ package com.honghanh.buildyourcastledemo.features.shop
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.honghanh.buildyourcastledemo.core.model.HouseData
 import com.honghanh.buildyourcastledemo.core.model.Rarity
@@ -18,7 +19,7 @@ class ShopViewModel : ViewModel() {
 
     private var listIdDaSoHuu = emptyList<String>()
     private val firestore = FirebaseFirestore.getInstance()
-    private val mockUserId = "eahgwrhj46et"
+    private val mockUserId =  FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
     init {
         layLtTuFb()

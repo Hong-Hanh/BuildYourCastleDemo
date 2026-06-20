@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.auth.FirebaseAuth
 import com.honghanh.buildyourcastledemo.features.focus.FocusScreen
 import com.honghanh.buildyourcastledemo.features.shop.ShopScreen
 import com.honghanh.buildyourcastledemo.features.admin.AdminScreen
@@ -28,6 +29,8 @@ import com.honghanh.buildyourcastledemo.core.database.AppDatabase
 import com.honghanh.buildyourcastledemo.features.focus.FocusViewModel
 import com.honghanh.buildyourcastledemo.features.focus.FocusViewModelFactory
 import com.honghanh.buildyourcastledemo.features.focus.data.FocusLocalRepository
+import com.honghanh.buildyourcastledemo.features.auth.LoginScreen
+import com.honghanh.buildyourcastledemo.features.auth.SignUpScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,20 +39,33 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             BuildYourCastleDemoTheme {
-                // Quản lý trạng thái màn hình hiện tại
-                var currentScreen by remember { mutableStateOf("focus") }
+
+                // 🔥 ĐÃ SỬA: Kiểm tra xem user đã đăng nhập Firebase từ trước chưa.
+                // Nếu rồi thì vào thẳng "focus", chưa thì bắt đầu từ màn "login".
+                val currentUser = remember { FirebaseAuth.getInstance().currentUser }
+                var currentScreen by remember {
+                    mutableStateOf(if (currentUser != null) "focus" else "login")
+                }
+
                 val database = AppDatabase.getDatabase(this)
 
-                val repository =
-                    FocusLocalRepository(
-                        database.focusSessionDao()
+                val repository = FocusLocalRepository(database.focusSessionDao())
+                val factory = FocusViewModelFactory(repository)
+                val focusViewModel: FocusViewModel = viewModel(factory = factory)
+
+                when (currentScreen) {
+                    // 🔥 MÀN HÌNH ĐĂNG NHẬP
+                    "login" -> LoginScreen(
+                        onLoginSuccess = { currentScreen = "focus" },
+                        onNavigateToSignUp = { currentScreen = "signup" }
                     )
 
-                val factory =
-                    FocusViewModelFactory(repository)
-                val focusViewModel: FocusViewModel =
-                    viewModel(factory = factory)
-                when (currentScreen) {
+                    // 🔥 MÀN HÌNH ĐĂNG KÝ
+                    "signup" -> SignUpScreen(
+                        onSignUpSuccess = { currentScreen = "focus" },
+                        onNavigateToLogin = { currentScreen = "login" }
+                    )
+
                     "focus" -> FocusScreen(
                         viewModel = focusViewModel,
                         onNavigateToProfile = { currentScreen = "profile" },
@@ -63,8 +79,12 @@ class MainActivity : ComponentActivity() {
 
                     "shop" -> ShopScreen(onBack = { currentScreen = "focus" })
 
+                    "admin" -> AdminScreen(onBack = { currentScreen = "focus" })
+
                     // --- CÁC MÀN HÌNH ĐANG DÙNG TẠM PLACEHOLDER ---
                     "profile" -> {
+                        // Bạn có thể thêm nút Đăng xuất ở màn hình Profile sau này bằng cách gọi:
+                        // FirebaseAuth.getInstance().signOut() và đặt currentScreen = "login"
                         PlaceholderScreen(title = "Màn hình Profile") { currentScreen = "focus" }
                     }
 
@@ -75,10 +95,6 @@ class MainActivity : ComponentActivity() {
                     "storage" -> {
                         PlaceholderScreen(title = "Kho (Thư viện Nhà & Linh thú)") { currentScreen = "focus" }
                     }
-                    "admin" -> AdminScreen(onBack = { currentScreen = "focus" })// Bấm nút Back trên thanh TopAppBar sẽ quay về màn hình Focus
-
-
-
 
                     "statistics" -> {
                         PlaceholderScreen(title = "Màn hình Thống kê") { currentScreen = "focus" }
@@ -89,11 +105,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/**
- * Hàm hiển thị màn hình tạm thời (Placeholder) để tránh lỗi biên dịch.
- * Khi bạn tạo file code chính thức cho từng màn hình, chỉ cần xóa nhánh tương ứng
- * ở trên và thay bằng Composable thật của bạn.
- */
 @Composable
 fun PlaceholderScreen(title: String, onBack: () -> Unit) {
     Box(
