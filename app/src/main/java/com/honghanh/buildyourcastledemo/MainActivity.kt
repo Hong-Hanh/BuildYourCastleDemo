@@ -31,6 +31,8 @@ import com.honghanh.buildyourcastledemo.features.focus.FocusViewModelFactory
 import com.honghanh.buildyourcastledemo.features.focus.data.FocusLocalRepository
 import com.honghanh.buildyourcastledemo.features.auth.LoginScreen
 import com.honghanh.buildyourcastledemo.features.auth.SignUpScreen
+import com.honghanh.buildyourcastledemo.features.gacha.GachaScreen
+import com.honghanh.buildyourcastledemo.features.gacha.GachaViewModel
 import com.honghanh.buildyourcastledemo.features.profile.ProfileScreen
 
 class MainActivity : ComponentActivity() {
@@ -53,7 +55,7 @@ class MainActivity : ComponentActivity() {
                 val repository = FocusLocalRepository(database.focusSessionDao())
                 val factory = FocusViewModelFactory(repository)
                 val focusViewModel: FocusViewModel = viewModel(factory = factory)
-
+                val gachaViewModel: GachaViewModel = viewModel()
                 when (currentScreen) {
                     // 🔥 MÀN HÌNH ĐĂNG NHẬP
                     "login" -> LoginScreen(
@@ -94,9 +96,14 @@ class MainActivity : ComponentActivity() {
 
 
                     "gacha" -> {
-                        PlaceholderScreen(title = "Màn hình Vòng quay Gacha") { currentScreen = "focus" }
+                        GachaScreen(
+                            viewModel = gachaViewModel,
+                            onBackClick = {
+                                gachaViewModel.xoaThongBao() // Dọn sạch thông báo/phần thưởng cũ khi thoát ra ngoài
+                                currentScreen = "focus"
+                            }
+                        )
                     }
-
                     "storage" -> {
                         PlaceholderScreen(title = "Kho (Thư viện Nhà & Linh thú)") { currentScreen = "focus" }
                     }
