@@ -34,6 +34,7 @@ import com.honghanh.buildyourcastledemo.features.auth.SignUpScreen
 import com.honghanh.buildyourcastledemo.features.gacha.GachaScreen
 import com.honghanh.buildyourcastledemo.features.gacha.GachaViewModel
 import com.honghanh.buildyourcastledemo.features.inventory.InventoryScreen
+import com.honghanh.buildyourcastledemo.features.performance.PerformanceScreen
 import com.honghanh.buildyourcastledemo.features.profile.ProfileScreen
 
 class MainActivity : ComponentActivity() {
@@ -112,7 +113,9 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     "statistics" -> {
-                        PlaceholderScreen(title = "Màn hình Thống kê") { currentScreen = "focus" }
+                        PerformanceScreen(
+                            onBack = { currentScreen = "focus" }
+                        )
                     }
                 }
             }
