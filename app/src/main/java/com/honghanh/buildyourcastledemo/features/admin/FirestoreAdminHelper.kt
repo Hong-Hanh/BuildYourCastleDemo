@@ -29,33 +29,50 @@ class FirestoreAdminHelper {
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
-        // Tạo một ID ngẫu nhiên dùng chung duy nhất cho cả 2 bảng dữ liệu
-        val houseRef = db.collection("house").document()
-        val generatedId = houseRef.id
+        // 1. Tự sinh ID ngẫu nhiên trước
+        val generatedId = db.collection("house").document().id
 
-        val finalizedHouse = house.copy(idHouse = generatedId)
+        // 2. Tạo Map dữ liệu cho bảng house
+        val houseMap = hashMapOf(
+            "idHouse" to generatedId,
+            "nameHouse" to house.nameHouse,
+            "imageUrl" to house.imageUrl,
+            "assetName" to house.assetName,
+            "priceGold" to house.priceGold,
+            "priceEC" to house.priceEC,
+            "rarity" to house.rarity.name
+        )
 
-        // Tạo Map chứa dữ liệu đồng nhất cho GachaPool
+        // 3. Tạo Map dữ liệu cho bảng gachapool
         val gachaItem = hashMapOf(
             "idHouse" to generatedId,
-            "nameHouse" to finalizedHouse.nameHouse,
-            "imageUrl" to finalizedHouse.imageUrl,
-            "description" to "Vật phẩm độ hiếm ${finalizedHouse.rarity.name}",
+            "nameHouse" to house.nameHouse,
+            "imageUrl" to house.imageUrl,
+            "description" to "Vật phẩm độ hiếm ${house.rarity.name}",
             "dropRate" to dropRate
         )
 
-        // Sử dụng Write Batch để đảm bảo tính toàn vẹn dữ liệu (Ghi cả hai hoặc hủy bỏ)
-        val batch = db.batch()
-
-        // 1. Đưa lệnh lưu vào bảng kho tổng 'house' vào batch
-        batch.set(houseRef, finalizedHouse)
-
-        // 2. Đưa lệnh lưu vào bảng 'GachaPool' vào batch với ID tài liệu trùng khớp
-        val gachaRef = db.collection("gachapool").document(generatedId)
-        batch.set(gachaRef, gachaItem)
-
-        batch.commit()
-            .addOnSuccessListener { onSuccess() }
-            .addOnFailureListener { e -> onError("Lỗi đồng bộ Gacha & Kho tổng: ${e.message}") }
+        // 🔥 TIẾN HÀNH GHI LẺ - BƯỚC 1: Ghi vào bảng 'house' trước
+        db.collection("house").document(generatedId)
+            .set(houseMap)
+            .addOnSuccessListener {
+                // Nếu bảng 'house' lưu thành công -> Tiến hành bước 2: Ghi vào 'gachapool'
+                db.collection("gachapool").document(generatedId)
+                    .set(gachaItem)
+                    .addOnSuccessListener {
+                        // Cả hai bảng đều thành công hoàn toàn
+                        onSuccess()
+                    }
+                    .addOnFailureListener { e ->
+                        // Bảng house ăn nhưng bảng gacha xịt
+                        android.util.Log.e("FA_ERROR", "Lỗi ghi bảng gachapool: ", e)
+                        onError("Kho tổng OK nhưng Vòng quay lỗi: ${e.localizedMessage}")
+                    }
+            }
+            .addOnFailureListener { e ->
+                // Ngay từ bảng 'house' đã bị Firebase từ chối
+                android.util.Log.e("FA_ERROR", "Lỗi ghi bảng house: ", e)
+                onError("Lỗi ghi vào Kho tổng (house): ${e.localizedMessage}")
+            }
     }
 }

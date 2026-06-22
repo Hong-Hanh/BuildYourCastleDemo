@@ -156,21 +156,28 @@ class GachaViewModel : ViewModel() {
     }
 
     private fun tinhToanQuayTheoTyLe(): HouseData? {
-        // 1. Tính tổng tỷ lệ (Dùng 0.0 thay vì 0)
+        if (gachaPool.isEmpty()) return null
+
         var tongTyLe = 0.0
         for (house in gachaPool) {
-            tongTyLe += itemDropRates[house.idHouse] ?: 0.0 // 🔥 ĐÃ SỬA: 0.0 chứ không phải 0
+            // Log thử ra để Hạnh check xem ID nào bị thiếu tỷ lệ rơi
+            val rate = itemDropRates[house.idHouse]
+            if (rate == null) {
+                android.util.Log.e("GACHA_LOG", "Vật phẩm ${house.nameHouse} có ID ${house.idHouse} KHÔNG tìm thấy tỷ lệ drop!")
+            }
+            tongTyLe += rate ?: 0.0
         }
 
-        if (tongTyLe <= 0.0) return gachaPool.randomOrNull()
+        // 🔥 BẢO HIỂM: Nếu cấu hình sai tỷ lệ khiến tổng = 0, bốc ngẫu nhiên 1 item luôn để không treo app
+        if (tongTyLe <= 0.0) {
+            return gachaPool.randomOrNull()
+        }
 
-        // 2. Quay số thực ngẫu nhiên
         val xucXac = kotlin.random.Random.nextDouble(0.0, tongTyLe)
         var mốcChạy = 0.0
 
-        // 3. Tìm vật phẩm trúng thưởng
         for (house in gachaPool) {
-            val tyLeCuaItem = itemDropRates[house.idHouse] ?: 0.0 // 🔥 ĐÃ SỬA: 0.0 chứ không phải 0
+            val tyLeCuaItem = itemDropRates[house.idHouse] ?: 0.0
             mốcChạy += tyLeCuaItem
             if (xucXac <= mốcChạy) {
                 return house
@@ -180,6 +187,7 @@ class GachaViewModel : ViewModel() {
     }
 
     // 🔥 XỬ LÝ LƯU TOÀN BỘ DANH SÁCH (Hỗ trợ x10 chống trùng lặp tối ưu)
+    // 🔥 XỬ LÝ LƯU TOÀN BỘ DANH SÁCH (Đã sửa lỗi lưu nhầm imageUrl thay vì idHouse)
     private fun capNhatNhieuVatPhamVaoKho(userId: String, items: List<HouseData>) {
         val userRef = db.collection("UserProfile").document(userId)
 
@@ -192,27 +200,30 @@ class GachaViewModel : ViewModel() {
                 val listHouseMoi = mutableListOf<String>()
                 var tongVangHoanLai = 0
 
-                // Duyệt qua 10 món quà vừa quay được để phân loại xem món nào trùng, món nào chưa có
+                // Duyệt qua các món quà vừa quay được để phân loại
                 for (item in items) {
                     val isAvatar = item.imageUrl.isEmpty()
-                    val itemIdentifier = if (isAvatar) item.assetName else item.imageUrl
 
                     if (isAvatar) {
+                        val itemIdentifier = item.assetName
                         if (ownedAvatars.contains(itemIdentifier) || listAvatarMoi.contains(itemIdentifier)) {
                             tongVangHoanLai += 150 // Trùng đổi ra vàng
                         } else {
                             listAvatarMoi.add(itemIdentifier)
                         }
                     } else {
+                        // 🔥 ĐÃ SỬA: Lấy idHouse để lưu vào kho đồ, không lấy imageUrl nữa!
+                        val itemIdentifier = item.idHouse
+
                         if (ownedHouses.contains(itemIdentifier) || listHouseMoi.contains(itemIdentifier)) {
-                            tongVangHoanLai += 150
+                            tongVangHoanLai += 150 // Trùng đổi ra vàng
                         } else {
                             listHouseMoi.add(itemIdentifier)
                         }
                     }
                 }
 
-                // Thực hiện 1 lệnh update duy nhất lên Firestore để tiết kiệm băng thông và tối ưu hiệu năng
+                // Thực hiện 1 lệnh update duy nhất lên Firestore để tiết kiệm băng thông
                 val updates = mutableMapOf<String, Any>()
                 if (listAvatarMoi.isNotEmpty()) updates["ownedAvatars"] = FieldValue.arrayUnion(*listAvatarMoi.toTypedArray())
                 if (listHouseMoi.isNotEmpty()) updates["ownedHouses"] = FieldValue.arrayUnion(*listHouseMoi.toTypedArray())

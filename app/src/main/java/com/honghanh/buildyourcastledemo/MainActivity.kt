@@ -33,6 +33,7 @@ import com.honghanh.buildyourcastledemo.features.auth.LoginScreen
 import com.honghanh.buildyourcastledemo.features.auth.SignUpScreen
 import com.honghanh.buildyourcastledemo.features.gacha.GachaScreen
 import com.honghanh.buildyourcastledemo.features.gacha.GachaViewModel
+import com.honghanh.buildyourcastledemo.features.inventory.InventoryScreen
 import com.honghanh.buildyourcastledemo.features.profile.ProfileScreen
 
 class MainActivity : ComponentActivity() {
@@ -104,10 +105,12 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
+                    //  ĐOẠN MỚI ĐÃ TÍCH HỢP KHO ĐỒ THỰC TẾ:
                     "storage" -> {
-                        PlaceholderScreen(title = "Kho (Thư viện Nhà & Linh thú)") { currentScreen = "focus" }
+                        InventoryScreen(
+                            onBack = { currentScreen = "focus" }
+                        )
                     }
-
                     "statistics" -> {
                         PlaceholderScreen(title = "Màn hình Thống kê") { currentScreen = "focus" }
                     }
