@@ -1,2 +1,0 @@
-# BuildYourCastleDemo
-demo thử trước
